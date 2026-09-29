@@ -1,0 +1,8 @@
+{
+  "name": "SATYA — News with truth",
+  "description": "SATYA is a verified multi-source news intelligence and truth analysis platform for live headlines, trending events, and AI fact-checking.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

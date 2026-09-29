@@ -2,7 +2,7 @@
 
 function evaluateEventEvidence(groupedArticle) {
     const sources = (groupedArticle.relatedSources || []).map(s => s.source);
-    const uniqueSources = [...newSet(sources)];
+    const uniqueSources = [...new Set(sources)];
     const sourceCount = uniqueSources.length;
 
     let agreementScore = 50;

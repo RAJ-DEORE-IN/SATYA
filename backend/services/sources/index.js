@@ -2,9 +2,10 @@ const timesOfIndia = require('./timesOfIndia');
 const ndtv = require('./ndtv');
 const bbcIndia = require('./bbcIndia');
 const hindu = require('./hindu');
-const indianExpress = require('./indianExpress');
+const hindustanTimes = require('./hindustanTimes');
 const livemint = require('./livemint');
 const boomFactCheck = require('./boomFactCheck');
+const factly = require('./factly');
 const wikipedia = require('./wikipedia');
 const socialTrends = require('./socialTrends');
 
@@ -13,9 +14,10 @@ const newsSources = [
     ndtv,
     bbcIndia,
     hindu,
-    indianExpress,
+    hindustanTimes,
     livemint,
-    boomFactCheck
+    boomFactCheck,
+    factly
 ];
 
 module.exports = {

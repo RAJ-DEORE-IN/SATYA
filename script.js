@@ -1,6 +1,31 @@
+/**
+ * SATYA — News with truth.
+ * Full-stack Client Controller with Firebase Authentication & Firestore Integration
+ */
+
+import { 
+    signInWithGoogle, 
+    signOutUser, 
+    onAuthChange, 
+    saveArticle, 
+    removeArticle, 
+    getUserSavedArticles 
+} from "./firebase-service.js";
+
 document.addEventListener("DOMContentLoaded", () => {
-    const LIVE_NEWS_API = "http://localhost:3000/api/live-news";
-    const AI_API = "http://localhost:3000/api/ai-chat";
+    // -------------------------------------------------------------
+    // CONFIGURABLE PRODUCTION API STRATEGY
+    // -------------------------------------------------------------
+    const API_BASE = window.SATYA_API_BASE || '';
+    const LIVE_NEWS_API = `${API_BASE}/api/live-news`;
+    const AI_API = `${API_BASE}/api/ai-chat`;
+    const FACT_CHECK_API = `${API_BASE}/api/fact-check`;
+
+    // -------------------------------------------------------------
+    // CENTRAL APPLICATION STATE
+    // -------------------------------------------------------------
+    let currentUser = null;
+    const savedArticlesMap = new Map(); // articleId -> article object
 
     let liveNewsPool = [];
     let stories = [];
@@ -8,18 +33,33 @@ document.addEventListener("DOMContentLoaded", () => {
     let latestStories = [];
     let currentStoryIndex = 0;
     let autoSlideTimer = null;
+    let isTabTransitioning = false;
 
     const FALLBACK_IMG = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1000&q=80";
+
+    // Stable article ID generator
+    function getStableArticleId(item, indexFallback = 0) {
+        if (item && item.id) return String(item.id);
+        const titleStr = (item?.title || "").trim();
+        const sourceStr = (item?.source || "").trim();
+        if (titleStr) {
+            // Slugify title + source
+            const slug = `${sourceStr}-${titleStr}`.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 48);
+            return slug || `satya-art-${indexFallback}`;
+        }
+        return `satya-art-${indexFallback}`;
+    }
 
     function ensureUniqueImages(newsArray) {
         const seenImages = new Set();
         return newsArray.map((item, idx) => {
-            let img = item.image && item.image.trim() !== "" ? item.image : FALLBACK_IMG;
+            const articleId = getStableArticleId(item, idx);
+            let img = item.image && typeof item.image === 'string' && item.image.trim() !== "" ? item.image : FALLBACK_IMG;
             if (seenImages.has(img)) {
                 img = `https://picsum.photos/800/500?random=${idx + 100}`;
             }
             seenImages.add(img);
-            return { ...item, image: img };
+            return { ...item, id: articleId, image: img };
         });
     }
 
@@ -88,7 +128,6 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateLiveHeaderClock() {
         const dateEl = document.getElementById("live-date");
         if (!dateEl) return;
-        
         const now = new Date();
         const p = getISTParts(now);
         dateEl.textContent = `${p.weekday}, ${p.day} ${p.month} ${p.year} • ${p.hour}:${p.minute} ${p.dayPeriod || ''} IST`;
@@ -113,13 +152,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 font-size: 13px;
                 font-weight: 600;
                 color: #fff;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.25);
                 transition: opacity 0.3s ease;
+                max-width: 90vw;
+                text-align: center;
             `;
             document.body.appendChild(banner);
         }
         banner.style.background = isError ? "rgba(229, 57, 53, 0.95)" : "rgba(30, 30, 30, 0.95)";
-        banner.style.backdropFilter = "blur(10px)";
+        banner.style.backdropFilter = "blur(12px)";
         banner.textContent = message;
         banner.style.display = "block";
         banner.style.opacity = "1";
@@ -129,6 +170,216 @@ document.addEventListener("DOMContentLoaded", () => {
             setTimeout(() => { banner.style.display = "none"; }, 300);
         }, 4000);
     }
+
+    // -------------------------------------------------------------
+    // AUTHENTICATION & USER PROFILE CONTROLLER
+    // -------------------------------------------------------------
+    const userProfileBtn = document.getElementById("user-profile-btn");
+    const userAvatar = document.getElementById("user-avatar");
+    const userDropdown = document.getElementById("user-dropdown");
+    const dropdownAvatar = document.getElementById("dropdown-user-avatar");
+    const dropdownUserName = document.getElementById("dropdown-user-name");
+    const dropdownUserEmail = document.getElementById("dropdown-user-email");
+    const dropdownAuthBtn = document.getElementById("dropdown-auth-btn");
+    const dropdownSavedBtn = document.getElementById("dropdown-saved-btn");
+    const googleSigninBtn = document.getElementById("google-signin-btn");
+    const authStatusMsg = document.getElementById("auth-status-msg");
+    const closeAuthBtn = document.getElementById("close-auth");
+
+    const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80";
+
+    // Centralized Auth State Handler
+    onAuthChange(async (user) => {
+        currentUser = user;
+        if (user) {
+            console.log("[SATYA AUTH] Logged in as:", user.displayName || user.email);
+            const photo = user.photoURL || DEFAULT_AVATAR;
+            const name = user.displayName || "SATYA Reader";
+            const email = user.email || "";
+
+            if (userAvatar) userAvatar.src = photo;
+            if (dropdownAvatar) dropdownAvatar.src = photo;
+            if (dropdownUserName) dropdownUserName.textContent = name;
+            if (dropdownUserEmail) dropdownUserEmail.textContent = email;
+            if (dropdownAuthBtn) {
+                dropdownAuthBtn.innerHTML = `<span>Sign Out</span>`;
+                dropdownAuthBtn.className = "dropdown-btn secondary";
+            }
+
+            // Load saved articles from Firestore
+            await syncUserSavedArticles();
+        } else {
+            console.log("[SATYA AUTH] Signed out / Guest session");
+            if (userAvatar) userAvatar.src = DEFAULT_AVATAR;
+            if (dropdownAvatar) dropdownAvatar.src = DEFAULT_AVATAR;
+            if (dropdownUserName) dropdownUserName.textContent = "Guest Reader";
+            if (dropdownUserEmail) dropdownUserEmail.textContent = "Sign in to sync saved articles";
+            if (dropdownAuthBtn) {
+                dropdownAuthBtn.innerHTML = `
+                    <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                    <span>Sign In with Google</span>
+                `;
+                dropdownAuthBtn.className = "dropdown-btn primary";
+            }
+
+            savedArticlesMap.clear();
+            updateAllBookmarkButtonStates();
+            renderSavedArticlesView();
+        }
+    });
+
+    async function syncUserSavedArticles() {
+        if (!currentUser) return;
+        try {
+            const articles = await getUserSavedArticles(currentUser.uid);
+            savedArticlesMap.clear();
+            articles.forEach(art => {
+                if (art && art.articleId) {
+                    savedArticlesMap.set(String(art.articleId), art);
+                }
+            });
+            updateAllBookmarkButtonStates();
+            renderSavedArticlesView();
+        } catch (err) {
+            console.warn("[SATYA SAVED] Sync error:", err);
+        }
+    }
+
+    userProfileBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        userDropdown?.classList.toggle("show");
+        document.getElementById("notif-dropdown")?.classList.remove("show");
+    });
+
+    dropdownAuthBtn?.addEventListener("click", async () => {
+        userDropdown?.classList.remove("show");
+        if (currentUser) {
+            try {
+                await signOutUser();
+                showBannerMessage("Signed out of SATYA.");
+            } catch (err) {
+                showBannerMessage("Sign out failed: " + err.message, true);
+            }
+        } else {
+            openModal("auth-modal");
+        }
+    });
+
+    dropdownSavedBtn?.addEventListener("click", () => {
+        userDropdown?.classList.remove("show");
+        switchTab("Saved");
+    });
+
+    googleSigninBtn?.addEventListener("click", async () => {
+        if (authStatusMsg) authStatusMsg.textContent = "Connecting to Google Authentication...";
+        try {
+            const user = await signInWithGoogle();
+            if (authStatusMsg) authStatusMsg.textContent = "";
+            closeModal("auth-modal");
+            showBannerMessage(`Namaste, ${user.displayName || 'Reader'}! Signed in.`);
+        } catch (err) {
+            if (err.isCancelled) {
+                if (authStatusMsg) authStatusMsg.textContent = "Sign-in was cancelled.";
+            } else {
+                console.error("[SATYA AUTH ERROR]:", err);
+                if (authStatusMsg) authStatusMsg.textContent = err.message || "Sign-in failed. Please try again.";
+            }
+        }
+    });
+
+    closeAuthBtn?.addEventListener("click", () => closeModal("auth-modal"));
+
+    // -------------------------------------------------------------
+    // BOOKMARK / SAVE FEATURE IMPLEMENTATION
+    // -------------------------------------------------------------
+    async function toggleBookmark(article) {
+        if (!article) return;
+        const articleId = String(article.id || getStableArticleId(article));
+
+        if (!currentUser) {
+            // Prompt login
+            const authSubtitle = document.getElementById("auth-modal-subtitle");
+            if (authSubtitle) {
+                authSubtitle.textContent = "Sign in with Google to save this verified story to your permanent SATYA briefing list.";
+            }
+            openModal("auth-modal");
+            return;
+        }
+
+        const isCurrentlySaved = savedArticlesMap.has(articleId);
+
+        try {
+            if (isCurrentlySaved) {
+                await removeArticle(currentUser.uid, articleId);
+                savedArticlesMap.delete(articleId);
+                showBannerMessage("Story removed from your Saved briefing.");
+            } else {
+                const savedRecord = {
+                    id: articleId,
+                    title: article.title || "Untitled Report",
+                    description: article.description || article.content || "",
+                    image: article.image || FALLBACK_IMG,
+                    source: article.source || "SATYA",
+                    sourceUrl: article.sourceUrl || "",
+                    category: article.category || "GENERAL",
+                    publishedAt: article.publishedAt || new Date().toISOString(),
+                    verifiedStatus: article.verifiedStatus || "SUPPORTED"
+                };
+                await saveArticle(currentUser.uid, savedRecord);
+                savedArticlesMap.set(articleId, savedRecord);
+                showBannerMessage("Story saved to your private briefing.");
+            }
+
+            updateAllBookmarkButtonStates();
+            renderSavedArticlesView();
+        } catch (err) {
+            console.error("[SATYA BOOKMARK ERROR]:", err);
+            showBannerMessage("Failed to update saved story: " + err.message, true);
+        }
+    }
+
+    function isArticleSaved(articleId) {
+        return savedArticlesMap.has(String(articleId));
+    }
+
+    function updateAllBookmarkButtonStates() {
+        // 1. Hero bookmark button
+        const activeStory = stories[currentStoryIndex];
+        const heroBtn = document.getElementById("hero-bookmark-btn");
+        const heroText = document.getElementById("hero-bookmark-text");
+        if (heroBtn && activeStory) {
+            const saved = isArticleSaved(activeStory.id);
+            heroBtn.classList.toggle("saved", saved);
+            if (heroText) heroText.textContent = saved ? "Saved" : "Save";
+        }
+
+        // 2. Card bookmark buttons
+        document.querySelectorAll(".card-bookmark-btn").forEach(btn => {
+            const artId = btn.getAttribute("data-article-id");
+            if (artId) {
+                btn.classList.toggle("saved", isArticleSaved(artId));
+            }
+        });
+
+        // 3. Detail modal bookmark button
+        const modalBtn = document.getElementById("modal-bookmark-btn");
+        if (modalBtn) {
+            const modalArtId = modalBtn.getAttribute("data-article-id");
+            if (modalArtId) {
+                const saved = isArticleSaved(modalArtId);
+                modalBtn.classList.toggle("saved", saved);
+                const txt = modalBtn.querySelector(".btn-text");
+                if (txt) txt.textContent = saved ? "Saved in Briefing" : "Save Story";
+            }
+        }
+    }
+
+    const heroBookmarkBtn = document.getElementById("hero-bookmark-btn");
+    heroBookmarkBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const activeStory = stories[currentStoryIndex];
+        if (activeStory) toggleBookmark(activeStory);
+    });
 
     // -------------------------------------------------------------
     // DYNAMIC WORKING NOTIFICATIONS POPUP
@@ -152,7 +403,6 @@ document.addEventListener("DOMContentLoaded", () => {
         recentNotifs.forEach((item, index) => {
             const notifItem = document.createElement("div");
             notifItem.className = `notif-item ${index < 2 ? 'unread' : ''}`;
-            
             const sourceBadge = item.source || item.category || "NEWS";
             const timeAgo = formatPublishDate(item.publishedAt);
 
@@ -165,15 +415,7 @@ document.addEventListener("DOMContentLoaded", () => {
             `;
 
             notifItem.addEventListener("click", () => {
-                openStoryModal(
-                    item.title,
-                    `${item.source} • ${formatPublishDate(item.publishedAt)}`,
-                    item.image,
-                    item.description || item.content,
-                    item.sourceUrl,
-                    item.relatedSources,
-                    item.verifiedStatus
-                );
+                openStoryModal(item);
                 document.getElementById("notif-dropdown")?.classList.remove("show");
             });
 
@@ -182,26 +424,88 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // -------------------------------------------------------------
-    // DYNAMIC TOP RIGHT SLIDE WITH AI TRUTH VERIFICATION OUTPUT
+    // DEFENSIBLE EVIDENCE-BASED TRUTH AUDIT (Top-Right Section)
     // -------------------------------------------------------------
+    function evaluateArticleEvidence(article) {
+        if (!article) {
+            return {
+                status: "INSUFFICIENT_EVIDENCE",
+                label: "INSUFFICIENT EVIDENCE",
+                cssClass: "status-insufficient",
+                explanation: "Verification temporarily unavailable for this item.",
+                timeline: []
+            };
+        }
+
+        const related = Array.isArray(article.relatedSources) ? article.relatedSources : [];
+        const sourceCount = related.length > 0 ? related.length : 1;
+        const sourcesList = related.length > 0 
+            ? [...new Set(related.map(r => r.source || r))]
+            : [article.source || "SATYA Index"];
+
+        let status = article.verifiedStatus || "SUPPORTED";
+        let explanation = "";
+
+        // Check for conflicting indicators
+        const hasConflict = related.some(r => {
+            const t = (r.title || '').toLowerCase();
+            return t.includes('denies') || t.includes('refutes') || t.includes('claims otherwise') || t.includes('contradicts');
+        });
+
+        if (hasConflict) {
+            status = "CONFLICTING";
+            explanation = `Conflicting claims detected across independent coverage from ${sourcesList.join(', ')}.`;
+        } else if (status === "CONFIRMED" || sourceCount >= 2) {
+            status = "CONFIRMED";
+            explanation = `Corroborated across ${sourcesList.length} independent verified outlets (${sourcesList.join(', ')}). High source consistency.`;
+        } else if (article.category === "FACT CHECK") {
+            status = "CONFIRMED";
+            explanation = `Independently audited by verified fact-checking organization (${article.source}).`;
+        } else if (status === "UNVERIFIED") {
+            status = "UNVERIFIED";
+            explanation = `Single unconfirmed feed. Corroborating multi-source validation in progress.`;
+        } else {
+            status = "SUPPORTED";
+            explanation = `Reported by reputable outlet (${article.source}). Cross-source indexing active.`;
+        }
+
+        return {
+            status,
+            label: status,
+            cssClass: `status-${status.toLowerCase()}`,
+            explanation,
+            sourceCount,
+            sourcesList
+        };
+    }
+
     function renderTopRightSlideUI(activeStoryIndex = 0) {
         const happeningTimeline = document.getElementById("happening-timeline");
         const happeningFooter = document.getElementById("happening-footer");
         const aiTruthOutput = document.getElementById("ai-truth-output");
         const truthScoreEl = document.getElementById("truth-score");
+        const aiStatusPill = document.getElementById("ai-status-pill");
 
         if (!happeningTimeline) return;
 
         const currentStory = stories[activeStoryIndex] || liveNewsPool[0];
-        if (!currentStory) return;
+        if (!currentStory) {
+            if (truthScoreEl) truthScoreEl.textContent = "INSUFFICIENT EVIDENCE";
+            if (aiTruthOutput) aiTruthOutput.textContent = "Verification temporarily unavailable.";
+            return;
+        }
 
-        // Dynamic AI Verification Output based on news sources
-        const sourcesCount = (currentStory.relatedSources && currentStory.relatedSources.length) ? currentStory.relatedSources.length : 3;
-        const calcTruth = currentStory.verifiedStatus === "CONFIRMED" ? "99% TRUTH" : (currentStory.verifiedStatus === "CONFLICTING" ? "65% TRUTH" : "94% TRUTH");
+        const evidence = evaluateArticleEvidence(currentStory);
 
-        if (truthScoreEl) truthScoreEl.textContent = calcTruth;
+        if (truthScoreEl) {
+            truthScoreEl.textContent = evidence.label;
+            truthScoreEl.className = `truth-score ${evidence.cssClass}`;
+        }
+        if (aiStatusPill) {
+            aiStatusPill.textContent = "EVIDENCE STATUS";
+        }
         if (aiTruthOutput) {
-            aiTruthOutput.textContent = `AI Analysis: Verified across ${sourcesCount} sources. Headline "${currentStory.title.substring(0, 45)}..." matches verified API streams.`;
+            aiTruthOutput.textContent = evidence.explanation;
         }
 
         happeningTimeline.innerHTML = "";
@@ -218,7 +522,7 @@ document.addEventListener("DOMContentLoaded", () => {
             timelineEvents = [
                 { time: timeStr, text: `Reported by ${currentStory.source || 'SATYA'}: ${currentStory.title}`, active: true },
                 { time: "Live", text: `Category: ${currentStory.category || 'General News'} update verified.`, active: true },
-                { time: "Live", text: `Cross-source tracking enabled for this event.`, active: false }
+                { time: "Index", text: `Cross-source indexing tracking enabled.`, active: false }
             ];
         }
 
@@ -228,16 +532,19 @@ document.addEventListener("DOMContentLoaded", () => {
             div.innerHTML = `
                 <span class="time">${evt.time}</span>
                 <div class="timeline-dot ${evt.active ? 'active' : ''}"></div>
-                <p title="${evt.text}">${evt.text}</p>
+                <p title="${escapeHtml(evt.text)}">${escapeHtml(evt.text)}</p>
             `;
             happeningTimeline.appendChild(div);
         });
 
         if (happeningFooter) {
-            happeningFooter.textContent = `Developing story: ${currentStory.source || 'Multi-source'} • Live updates active.`;
+            happeningFooter.textContent = `Developing story: ${currentStory.source || 'Multi-source'} • Live index sync active.`;
         }
     }
 
+    // -------------------------------------------------------------
+    // DATA LOADING & RESILIENT POLLING
+    // -------------------------------------------------------------
     async function loadNewsData(isBackgroundRefresh = false) {
         try {
             if (!isBackgroundRefresh) showBannerMessage("Syncing SATYA News Intelligence...");
@@ -264,60 +571,105 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 const activeTab = document.querySelector(".bottom-glass-nav .nav-item.active span")?.textContent || "Home";
                 renderCategoryViews(activeTab.toLowerCase());
+                updateAllBookmarkButtonStates();
 
                 if (!isBackgroundRefresh) {
-                    showBannerMessage(`Updated ${liveNewsPool.length} multi-source news entries.`);
+                    showBannerMessage(`Updated ${liveNewsPool.length} verified news entries.`);
                 }
             }
         } catch (error) {
             console.error("[SATYA LOAD ERROR]:", error);
             if (!isBackgroundRefresh) {
-                showBannerMessage("Backend server offline (http://localhost:3000). Showing fallback mode.", true);
+                showBannerMessage("Connecting to SATYA news feeds... Showing offline mode.", true);
             }
         }
     }
 
     setInterval(() => loadNewsData(true), 120000);
 
-    function openStoryModal(headline, locationMeta, image, content, sourceUrl, relatedSources = [], confidence = null) {
+    // -------------------------------------------------------------
+    // STORY DETAIL MODAL CONTROLLER
+    // -------------------------------------------------------------
+    function openStoryModal(article) {
+        activeModalArticle = article;
         const detailBody = document.getElementById("detail-modal-body");
-        if (!detailBody) return;
+        if (!detailBody || !article) return;
 
-        const safeImg = image || FALLBACK_IMG;
-        const safeTitle = headline || "Untitled Report";
-        const safeLoc = locationMeta || "SATYA Live Feed";
-        const safeContent = content || "Full details for this report are currently being updated.";
-        
+        const safeImg = article.image || FALLBACK_IMG;
+        const safeTitle = article.title || "Untitled Report";
+        const safeLoc = `${article.source || 'SATYA'} • ${formatPublishDate(article.publishedAt)}`;
+        const safeContent = article.description || article.content || "Full verified details for this report are currently being updated.";
+        const articleId = String(article.id || getStableArticleId(article));
+        const isSaved = isArticleSaved(articleId);
+
         let sourcesHtml = "";
-        if (Array.isArray(relatedSources) && relatedSources.length > 0) {
-            sourcesHtml = `<div class="detail-multi-sources"><strong>Verified Sources:</strong> ${relatedSources.map(s => `<span class="source-tag">${s.source || s}</span>`).join(' ')}</div>`;
+        if (Array.isArray(article.relatedSources) && article.relatedSources.length > 0) {
+            sourcesHtml = `
+                <div class="detail-multi-sources" style="margin-top:12px; font-size:12px; color:#555;">
+                    <strong>Verified Corroborating Sources:</strong> 
+                    ${article.relatedSources.map(s => `<span class="source-tag" style="display:inline-block; margin-left:4px; padding:3px 8px; background:rgba(0,0,0,0.06); border-radius:12px; font-weight:600;">${escapeHtml(s.source || s)}</span>`).join(' ')}
+                </div>
+            `;
         }
 
         let confidenceHtml = "";
-        if (confidence) {
-            confidenceHtml = `<div class="confidence-pill confidence-${confidence.toLowerCase()}">Status: ${confidence}</div>`;
-        }
+        const evidence = evaluateArticleEvidence(article);
+        confidenceHtml = `
+            <div class="confidence-pill" style="display:inline-block; margin-bottom:8px; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:700; background:rgba(0,0,0,0.06);">
+                Evidence Status: <span class="${evidence.cssClass}">${evidence.label}</span>
+            </div>
+        `;
 
-        const readMoreBtnHtml = sourceUrl 
-            ? `<div style="margin-top:20px;"><a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" class="read-more-btn" style="display:inline-block; padding:11px 24px; background:#e53935; color:#fff; text-decoration:none; border-radius:24px; font-weight:700; font-size:13px; transition:transform 0.2s;">Read Full Source Article &rarr;</a></div>` 
+        let safeUrl = article.sourceUrl && (article.sourceUrl.startsWith('http://') || article.sourceUrl.startsWith('https://'))
+            ? article.sourceUrl
+            : null;
+
+        const readMoreBtnHtml = safeUrl 
+            ? `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="read-more-btn" style="display:inline-block; padding:11px 22px; background:#e53935; color:#fff; text-decoration:none; border-radius:24px; font-weight:700; font-size:13px; transition:transform 0.2s;">Read Full Source Article &rarr;</a>` 
             : '';
 
         detailBody.innerHTML = `
-            <img src="${safeImg}" alt="${safeTitle}" onerror="this.src='${FALLBACK_IMG}'">
+            <img src="${safeImg}" alt="${escapeHtml(safeTitle)}" onerror="this.src='${FALLBACK_IMG}'" style="width:100%; max-height:300px; object-fit:cover; border-radius:18px; margin-bottom:16px;">
             ${confidenceHtml}
-            <h2>${safeTitle}</h2>
-            <div class="detail-meta"><span>${safeLoc}</span></div>
+            <h2>${escapeHtml(safeTitle)}</h2>
+            <div class="detail-meta" style="margin: 8px 0; font-size:12px; color:#666;"><span>${escapeHtml(safeLoc)}</span></div>
             ${sourcesHtml}
-            <div class="detail-body">
-                <p>${safeContent}</p>
+            <div class="detail-body" style="margin-top:16px; font-size:14px; line-height:1.6; color:#222;">
+                <p>${escapeHtml(safeContent)}</p>
+            </div>
+            <div class="detail-actions-row">
                 ${readMoreBtnHtml}
+                <button class="modal-bookmark-btn ${isSaved ? 'saved' : ''}" id="modal-bookmark-btn" data-article-id="${articleId}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="${isSaved ? '#fff' : 'none'}" stroke="currentColor" stroke-width="2.2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span class="btn-text">${isSaved ? 'Saved in Briefing' : 'Save Story'}</span>
+                </button>
             </div>
         `;
+
+        // Wire modal bookmark button
+        document.getElementById("modal-bookmark-btn")?.addEventListener("click", () => {
+            toggleBookmark(article);
+        });
 
         closeModal("search-modal");
         openModal("detail-modal");
     }
 
+    function escapeHtml(str) {
+        if (!str || typeof str !== 'string') return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // -------------------------------------------------------------
+    // MODAL HELPERS
+    // -------------------------------------------------------------
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
@@ -327,6 +679,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function closeModal(modalId) {
+        if (modalId === "detail-modal") activeModalArticle = null;
         const modal = document.getElementById(modalId);
         if (modal) modal.classList.remove("active");
         if (!document.querySelector(".modal-overlay.active")) {
@@ -348,9 +701,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.key === "Escape") {
             document.querySelectorAll(".modal-overlay.active").forEach(modal => closeModal(modal.id));
             document.getElementById("notif-dropdown")?.classList.remove("show");
+            document.getElementById("user-dropdown")?.classList.remove("show");
         }
     });
 
+    // -------------------------------------------------------------
+    // BOTTOM NAVIGATION & TAB VIEWS
+    // -------------------------------------------------------------
     const navItems = document.querySelectorAll(".bottom-glass-nav .nav-item");
     const activePill = document.getElementById("activePill");
 
@@ -384,8 +741,6 @@ document.addEventListener("DOMContentLoaded", () => {
         activePill.style.transform = `translateX(${offsetLeft}px)`;
         activePill.style.width = `${itemWidth}px`;
     }
-
-    let isTabTransitioning = false;
 
     function switchTab(selectedTabName) {
         const cleanName = selectedTabName.trim().toLowerCase();
@@ -426,14 +781,89 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
 
-            renderCategoryViews(cleanName);
+            if (cleanName === "saved") {
+                renderSavedArticlesView();
+            } else {
+                renderCategoryViews(cleanName);
+            }
             isTabTransitioning = false;
         }, 220);
     }
 
+    // -------------------------------------------------------------
+    // SAVED PAGE CONTROLLER
+    // -------------------------------------------------------------
+    function renderSavedArticlesView() {
+        const savedGrid = document.getElementById("saved-news-grid");
+        if (!savedGrid) return;
+
+        if (!currentUser) {
+            savedGrid.innerHTML = `
+                <div class="empty-saved-msg">
+                    <p style="font-size:15px; font-weight:700; color:#111; margin-bottom:8px;">Sign in to view your Saved Stories</p>
+                    <p style="color:#666; margin-bottom:20px;">Bookmark articles across any section to read later and sync across all your devices.</p>
+                    <button id="saved-page-signin-btn" class="dropdown-btn primary" style="max-width:220px; margin:0 auto;">
+                        Sign In with Google
+                    </button>
+                </div>
+            `;
+            document.getElementById("saved-page-signin-btn")?.addEventListener("click", () => openModal("auth-modal"));
+            return;
+        }
+
+        const savedArticles = Array.from(savedArticlesMap.values());
+        if (savedArticles.length === 0) {
+            savedGrid.innerHTML = `
+                <div class="empty-saved-msg">
+                    <p style="font-size:15px; font-weight:700; color:#111; margin-bottom:8px;">No saved stories yet</p>
+                    <p style="color:#666;">Click the bookmark icon on any top headline, trending story, or category card to build your verified briefing list.</p>
+                </div>
+            `;
+            return;
+        }
+
+        savedGrid.innerHTML = "";
+        savedArticles.forEach(item => {
+            const headline = item.title || "Headline Unavailable";
+            const imgUrl = item.image || FALLBACK_IMG;
+            const sourceBadge = item.source || item.category || "SAVED";
+            const timeLoc = `${item.source || 'SATYA'} • ${formatPublishDate(item.publishedAt)}`;
+            const articleId = String(item.id || item.articleId);
+
+            const card = document.createElement("article");
+            card.className = "news-card liquid-slide";
+            card.innerHTML = `
+                <button class="card-bookmark-btn saved" data-article-id="${articleId}" aria-label="Remove saved story" title="Remove story">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" stroke="currentColor" stroke-width="2.2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </button>
+                <img src="${imgUrl}" alt="${escapeHtml(headline)}" onerror="this.src='${FALLBACK_IMG}'">
+                <div class="news-content">
+                    <span class="category">${escapeHtml(sourceBadge)}</span>
+                    <h3>${escapeHtml(headline)}</h3>
+                    <p>${escapeHtml(timeLoc)}</p>
+                </div>
+            `;
+
+            // Card click opens detail modal
+            card.addEventListener("click", () => openStoryModal(item));
+
+            // Bookmark button removes from saved
+            card.querySelector(".card-bookmark-btn")?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                toggleBookmark(item);
+            });
+
+            savedGrid.appendChild(card);
+        });
+    }
+
+    // -------------------------------------------------------------
+    // CATEGORY VIEWS CONTROLLER
+    // -------------------------------------------------------------
     function renderCategoryViews(activeCategoryFilter = null) {
         const categories = ["today", "newsplus", "world", "business", "sports", "factcheck"];
-
         const featuredSlideMap = {
             "today": [0, 3],
             "newsplus": [1],
@@ -477,23 +907,31 @@ document.addEventListener("DOMContentLoaded", () => {
                 const imgUrl = s.image || FALLBACK_IMG;
                 const sourceBadge = s.source || s.category || catKey.toUpperCase();
                 const timeLoc = `${s.source || 'SATYA'} • ${formatPublishDate(s.publishedAt)}`;
+                const articleId = String(s.id);
+                const isSaved = isArticleSaved(articleId);
 
                 const article = document.createElement("article");
-                
                 const isFeatured = targetFeaturedIndexes.includes(idx);
                 article.className = `news-card liquid-slide ${isFeatured ? 'featured-slide' : ''}`;
 
                 article.innerHTML = `
-                    <img src="${imgUrl}" alt="${headline}" onerror="this.src='${FALLBACK_IMG}'">
+                    <button class="card-bookmark-btn ${isSaved ? 'saved' : ''}" data-article-id="${articleId}" aria-label="Save story" title="Save story">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="${isSaved ? '#fff' : 'none'}" stroke="currentColor" stroke-width="2.2">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                        </svg>
+                    </button>
+                    <img src="${imgUrl}" alt="${escapeHtml(headline)}" onerror="this.src='${FALLBACK_IMG}'">
                     <div class="news-content">
-                        <span class="category">${isFeatured ? 'FEATURED STORY' : sourceBadge}</span>
-                        <h3>${headline}</h3>
-                        <p>${timeLoc}</p>
+                        <span class="category">${isFeatured ? 'FEATURED STORY' : escapeHtml(sourceBadge)}</span>
+                        <h3>${escapeHtml(headline)}</h3>
+                        <p>${escapeHtml(timeLoc)}</p>
                     </div>
                 `;
 
-                article.addEventListener("click", () => {
-                    openStoryModal(headline, timeLoc, imgUrl, s.description || s.content, s.sourceUrl, s.relatedSources, s.verifiedStatus);
+                article.addEventListener("click", () => openStoryModal(s));
+                article.querySelector(".card-bookmark-btn")?.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    toggleBookmark(s);
                 });
 
                 grid.appendChild(article);
@@ -519,6 +957,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("brand-logo")?.addEventListener("click", () => switchTab("Home"));
 
+    // -------------------------------------------------------------
+    // HERO STORY CAROUSEL
+    // -------------------------------------------------------------
     const mainStory = document.getElementById("hero-article-card");
     const heroImg = document.getElementById("hero-img");
     const heroTag = document.getElementById("hero-tag");
@@ -542,17 +983,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (heroLocation) heroLocation.textContent = `${story.source} • ${formatPublishDate(story.publishedAt)}`;
                 if (heroHeadline) heroHeadline.textContent = story.title || "Headline Loading";
                 if (heroDescription) heroDescription.textContent = story.description || story.content || "";
+
+                // Hero bookmark sync
+                const isSaved = isArticleSaved(story.id);
+                const heroBtn = document.getElementById("hero-bookmark-btn");
+                const heroText = document.getElementById("hero-bookmark-text");
+                if (heroBtn) heroBtn.classList.toggle("saved", isSaved);
+                if (heroText) heroText.textContent = isSaved ? "Saved" : "Save";
             }
 
             dots.forEach((dot, idx) => dot.classList.toggle("active", idx === index));
             mainStory.classList.remove("fade-out");
 
-            // Sync Top Right Slide with the current active main story
             renderTopRightSlideUI(index);
         }, 180);
     }
 
-    // SLIDER INTERVAL CHANGED TO 25 SECONDS (25000ms)
     function startAutoSlide() {
         stopAutoSlide();
         autoSlideTimer = setInterval(() => {
@@ -583,34 +1029,17 @@ document.addEventListener("DOMContentLoaded", () => {
     heroReadBtn?.addEventListener("click", (e) => {
         e.stopPropagation();
         const activeStory = stories[currentStoryIndex];
-        if (activeStory) {
-            openStoryModal(
-                activeStory.title,
-                `${activeStory.source} • ${formatPublishDate(activeStory.publishedAt)}`,
-                activeStory.image,
-                activeStory.description || activeStory.content,
-                activeStory.sourceUrl,
-                activeStory.relatedSources,
-                activeStory.verifiedStatus
-            );
-        }
+        if (activeStory) openStoryModal(activeStory);
     });
 
     mainStory?.addEventListener("click", () => {
         const activeStory = stories[currentStoryIndex];
-        if (activeStory) {
-            openStoryModal(
-                activeStory.title,
-                `${activeStory.source} • ${formatPublishDate(activeStory.publishedAt)}`,
-                activeStory.image,
-                activeStory.description || activeStory.content,
-                activeStory.sourceUrl,
-                activeStory.relatedSources,
-                activeStory.verifiedStatus
-            );
-        }
+        if (activeStory) openStoryModal(activeStory);
     });
 
+    // -------------------------------------------------------------
+    // TRENDING & LATEST NEWS GRIDS
+    // -------------------------------------------------------------
     function renderTrendingUI() {
         const trendContainer = document.querySelector(".liquid-slide.trending");
         if (!trendContainer || trendingStories.length === 0) return;
@@ -628,17 +1057,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (h4) h4.textContent = data.title || h4.textContent;
             if (p) p.textContent = `${data.source} • ${formatPublishDate(data.publishedAt)}`;
 
-            item.onclick = () => {
-                openStoryModal(
-                    data.title, 
-                    `${data.source} • ${formatPublishDate(data.publishedAt)}`, 
-                    data.image, 
-                    data.description || data.content,
-                    data.sourceUrl,
-                    data.relatedSources,
-                    data.verifiedStatus
-                );
-            };
+            item.onclick = () => openStoryModal(data);
         });
     }
 
@@ -646,35 +1065,40 @@ document.addEventListener("DOMContentLoaded", () => {
         const latestGrid = document.querySelector(".latest-section .news-grid");
         if (!latestGrid || latestStories.length === 0) return;
 
-        const cards = latestGrid.querySelectorAll(".news-card");
-        cards.forEach((card, index) => {
-            const data = latestStories[index];
-            if (!data) return;
+        latestGrid.innerHTML = "";
+        latestStories.slice(0, 8).forEach((data) => {
+            const articleId = String(data.id);
+            const isSaved = isArticleSaved(articleId);
 
-            const img = card.querySelector("img");
-            const cat = card.querySelector(".category");
-            const h3 = card.querySelector("h3");
-            const p = card.querySelector("p");
+            const card = document.createElement("article");
+            card.className = "news-card liquid-slide";
+            card.innerHTML = `
+                <button class="card-bookmark-btn ${isSaved ? 'saved' : ''}" data-article-id="${articleId}" aria-label="Save story" title="Save story">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="${isSaved ? '#fff' : 'none'}" stroke="currentColor" stroke-width="2.2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </button>
+                <img src="${data.image || FALLBACK_IMG}" alt="${escapeHtml(data.title)}" onerror="this.src='${FALLBACK_IMG}'">
+                <div class="news-content">
+                    <span class="category">${escapeHtml(data.source || data.category || 'LATEST')}</span>
+                    <h3>${escapeHtml(data.title || 'Headline')}</h3>
+                    <p>${formatPublishDate(data.publishedAt)}</p>
+                </div>
+            `;
 
-            if (img) img.src = data.image || img.src;
-            if (cat) cat.textContent = data.source || data.category || cat.textContent;
-            if (h3) h3.textContent = data.title || h3.textContent;
-            if (p) p.textContent = formatPublishDate(data.publishedAt);
+            card.addEventListener("click", () => openStoryModal(data));
+            card.querySelector(".card-bookmark-btn")?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                toggleBookmark(data);
+            });
 
-            card.onclick = () => {
-                openStoryModal(
-                    data.title, 
-                    `${data.source} • ${formatPublishDate(data.publishedAt)}`, 
-                    data.image, 
-                    data.description || data.content,
-                    data.sourceUrl,
-                    data.relatedSources,
-                    data.verifiedStatus
-                );
-            };
+            latestGrid.appendChild(card);
         });
     }
 
+    // -------------------------------------------------------------
+    // NOTIFICATIONS & SEARCH MODAL
+    // -------------------------------------------------------------
     const notifBtn = document.getElementById("notif-btn");
     const notifDropdown = document.getElementById("notif-dropdown");
     const clearNotifs = document.getElementById("clear-notifs");
@@ -682,6 +1106,7 @@ document.addEventListener("DOMContentLoaded", () => {
     notifBtn?.addEventListener("click", (e) => {
         e.stopPropagation();
         notifDropdown?.classList.toggle("show");
+        userDropdown?.classList.remove("show");
     });
 
     clearNotifs?.addEventListener("click", () => {
@@ -696,6 +1121,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("click", (e) => {
         if (notifDropdown && !notifDropdown.contains(e.target) && e.target !== notifBtn) {
             notifDropdown.classList.remove("show");
+        }
+        if (userDropdown && !userDropdown.contains(e.target) && e.target !== userProfileBtn) {
+            userDropdown.classList.remove("show");
         }
     });
 
@@ -730,25 +1158,19 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (!filtered || filtered.length === 0) {
-            searchResults.innerHTML = `<p class="search-hint">No verified reports matching "${query}".</p>`;
+            searchResults.innerHTML = `<p class="search-hint">No verified reports matching "${escapeHtml(query)}".</p>`;
         } else {
             searchResults.innerHTML = "";
             filtered.forEach(item => {
                 const title = item.title || "Untitled Result";
                 const meta = `${item.source || 'SATYA'} • ${formatPublishDate(item.publishedAt)}`;
-                const img = item.image || FALLBACK_IMG;
-
                 const resDiv = document.createElement("div");
                 resDiv.className = "search-result-item";
                 resDiv.innerHTML = `
-                    <h4>${title}</h4>
-                    <p>${meta}</p>
+                    <h4>${escapeHtml(title)}</h4>
+                    <p>${escapeHtml(meta)}</p>
                 `;
-
-                resDiv.addEventListener("click", () => {
-                    openStoryModal(title, meta, img, item.description || item.content, item.sourceUrl, item.relatedSources, item.verifiedStatus);
-                });
-
+                resDiv.addEventListener("click", () => openStoryModal(item));
                 searchResults.appendChild(resDiv);
             });
         }
@@ -761,11 +1183,42 @@ document.addEventListener("DOMContentLoaded", () => {
         searchTimeout = setTimeout(() => performSearch(query), 200);
     });
 
-    // SIRI STYLE FULL WEB SYSTEM CONTROL FUNCTION
+    // -------------------------------------------------------------
+    // SIRI-STYLE SATYA SYSTEM INTELLIGENCE CONTROLLER
+    // -------------------------------------------------------------
+    let lastReferencedArticles = [];
+    let conversationHistory = [];
+
+    const ALLOWED_ACTIONS = new Set([
+        "NAVIGATE_TAB",
+        "OPEN_CATEGORY",
+        "GO_HOME",
+        "OPEN_SAVED",
+        "OPEN_TODAY",
+        "OPEN_WORLD",
+        "OPEN_BUSINESS",
+        "OPEN_SPORTS",
+        "OPEN_FACT_CHECK",
+        "SHOW_FACT_CHECK",
+        "OPEN_NEWS_PLUS",
+        "SHOW_TRENDING",
+        "SHOW_LATEST",
+        "SCROLL_TO_SECTION",
+        "SEARCH_NEWS",
+        "OPEN_ARTICLE",
+        "SAVE_ARTICLE",
+        "DELETE_SAVED_ARTICLE",
+        "PROMPT_SIGN_IN"
+    ]);
+
     function executeAIAction(action) {
         if (!action || typeof action !== "object" || !action.type) return;
-        
         const type = String(action.type).toUpperCase().trim();
+        if (!ALLOWED_ACTIONS.has(type)) {
+            console.warn("[SATYA AI] Ignored non-whitelisted action:", type);
+            return;
+        }
+
         const target = action.target ? String(action.target).toLowerCase().trim() : "";
 
         switch (type) {
@@ -776,9 +1229,30 @@ document.addEventListener("DOMContentLoaded", () => {
             case "GO_HOME":
                 switchTab("Home");
                 break;
+            case "OPEN_SAVED":
+                switchTab("Saved");
+                break;
+            case "OPEN_TODAY":
+                switchTab("Today");
+                break;
+            case "OPEN_WORLD":
+                switchTab("World");
+                break;
+            case "OPEN_BUSINESS":
+                switchTab("Business");
+                break;
+            case "OPEN_SPORTS":
+                switchTab("Sports");
+                break;
+            case "OPEN_NEWS_PLUS":
+                switchTab("News+");
+                break;
             case "OPEN_FACT_CHECK":
             case "SHOW_FACT_CHECK":
                 switchTab("Fact Check");
+                if (action.query || action.target) {
+                    setTimeout(() => handleLiveClaimVerification(action.query || action.target), 300);
+                }
                 break;
             case "SHOW_TRENDING":
                 switchTab("Home");
@@ -789,7 +1263,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.querySelector(".latest-section")?.scrollIntoView({ behavior: "smooth" });
                 break;
             case "SCROLL_TO_SECTION":
-            case "SCROLL_TO":
                 if (target === "latest") {
                     document.querySelector(".latest-section")?.scrollIntoView({ behavior: "smooth" });
                 } else if (target === "trending") {
@@ -799,22 +1272,30 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 break;
             case "SEARCH_NEWS":
-                triggerSearchModalWithQuery(action.payload || action.query || target || "");
+                triggerSearchModalWithQuery(action.query || target || "");
                 break;
             case "OPEN_ARTICLE":
-            case "OPEN_NEWS":
                 const targetArticle = liveNewsPool.find(a => (a.title || "").toLowerCase().includes(target)) || stories[0];
-                if (targetArticle) {
-                    openStoryModal(
-                        targetArticle.title,
-                        `${targetArticle.source} • ${formatPublishDate(targetArticle.publishedAt)}`,
-                        targetArticle.image,
-                        targetArticle.description || targetArticle.content,
-                        targetArticle.sourceUrl,
-                        targetArticle.relatedSources,
-                        targetArticle.verifiedStatus
-                    );
+                if (targetArticle) openStoryModal(targetArticle);
+                break;
+            case "SAVE_ARTICLE":
+                if (action.payload) {
+                    const artId = String(action.payload.id || action.payload.articleId);
+                    if (!savedArticlesMap.has(artId)) {
+                        toggleBookmark(action.payload);
+                    }
                 }
+                break;
+            case "DELETE_SAVED_ARTICLE":
+                if (action.payload) {
+                    const artId = String(action.payload.id || action.payload.articleId);
+                    if (savedArticlesMap.has(artId)) {
+                        toggleBookmark(action.payload);
+                    }
+                }
+                break;
+            case "PROMPT_SIGN_IN":
+                openModal("auth-modal");
                 break;
             default:
                 break;
@@ -835,24 +1316,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const userMsg = document.createElement("div");
         userMsg.className = "ai-msg user";
-        userMsg.innerHTML = `<p>${text}</p>`;
+        userMsg.innerHTML = `<p>${escapeHtml(text)}</p>`;
         aiChatBody.appendChild(userMsg);
 
         aiInput.value = "";
         aiChatBody.scrollTop = aiChatBody.scrollHeight;
-
-        const lowerText = text.toLowerCase();
-
-        // Siri-style strict web control rule for foreign or unverified requests (e.g. Nepal news)
-        if (lowerText.includes("nepal") || lowerText.includes("foreign news")) {
-            const botMsg = document.createElement("div");
-            botMsg.className = "ai-msg bot";
-            botMsg.innerHTML = `<p><strong>SATYA AI:</strong> Nahi, main sirf hamari verified web slides aur verified API news feeds hi dikhayunga. External unverified sources block kiye gaye hain.</p>`;
-            aiChatBody.appendChild(botMsg);
-            aiChatBody.scrollTop = aiChatBody.scrollHeight;
-            switchTab("World");
-            return;
-        }
 
         const loadingMsg = document.createElement("div");
         loadingMsg.className = "ai-msg bot loading";
@@ -860,13 +1328,35 @@ document.addEventListener("DOMContentLoaded", () => {
         aiChatBody.appendChild(loadingMsg);
         aiChatBody.scrollTop = aiChatBody.scrollHeight;
 
+        const activeTabName = document.querySelector(".bottom-glass-nav .nav-item.active span")?.textContent?.trim() || "Home";
+        const clientContext = {
+            currentTab: activeTabName,
+            currentArticle: activeModalArticle,
+            authenticated: !!currentUser,
+            userProfile: currentUser ? {
+                displayName: currentUser.displayName || "SATYA Reader",
+                email: currentUser.email || ""
+            } : null,
+            savedArticles: currentUser ? Array.from(savedArticlesMap.values()).map(a => ({
+                articleId: a.articleId || a.id,
+                title: a.title,
+                source: a.source,
+                category: a.category,
+                savedAt: a.savedAt,
+                publishedAt: a.publishedAt,
+                verifiedStatus: a.verifiedStatus
+            })) : [],
+            lastReferencedArticles: lastReferencedArticles
+        };
+
         try {
             const response = await fetch(AI_API, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+                body: JSON.stringify({ 
                     prompt: text,
-                    context: liveNewsPool.slice(0, 20)
+                    clientContext: clientContext,
+                    conversationHistory: conversationHistory
                 })
             });
 
@@ -877,16 +1367,22 @@ document.addEventListener("DOMContentLoaded", () => {
             const botMsg = document.createElement("div");
             botMsg.className = "ai-msg bot";
 
-            if (response.ok) {
+            if (response.status === 429) {
+                botMsg.innerHTML = `<p style="color:#e53935;">SATYA AI is receiving too many requests. Please try again shortly.</p>`;
+            } else if (response.ok) {
                 const data = await response.json();
-                const aiReply = data.reply || data.response || "Analysis complete.";
+                const aiReply = data.reply || data.response || "Verified analysis complete.";
                 
-                let confidenceBadge = "";
-                if (data.confidence) {
-                    confidenceBadge = `<span class="confidence-tag">${data.confidence}</span><br>`;
+                // Natural response presentation without exposing internal technical labels
+                botMsg.innerHTML = `<p>${escapeHtml(aiReply).replace(/\n/g, '<br>')}</p>`;
+
+                if (Array.isArray(data.referencedArticles) && data.referencedArticles.length > 0) {
+                    lastReferencedArticles = data.referencedArticles;
                 }
 
-                botMsg.innerHTML = `<p>${confidenceBadge}${aiReply}</p>`;
+                conversationHistory.push({ role: "user", content: text });
+                conversationHistory.push({ role: "assistant", content: aiReply });
+                if (conversationHistory.length > 10) conversationHistory = conversationHistory.slice(-10);
 
                 if (data.uiAction) {
                     executeAIAction(data.uiAction);
@@ -935,5 +1431,84 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("view-trending-all")?.addEventListener("click", () => switchTab("News+"));
     document.getElementById("view-latest-all")?.addEventListener("click", () => switchTab("Today"));
 
+    // -------------------------------------------------------------
+    // INTERACTIVE FACT CHECK CLAIM VERIFICATION
+    // -------------------------------------------------------------
+    const liveClaimInput = document.getElementById("live-claim-input");
+    const verifyClaimBtn = document.getElementById("verify-claim-btn");
+    const liveClaimResult = document.getElementById("live-claim-result");
+
+    async function handleLiveClaimVerification(queryClaim = null) {
+        const claim = queryClaim || (liveClaimInput ? liveClaimInput.value.trim() : "");
+        if (!claim || !liveClaimResult) return;
+
+        if (liveClaimInput) liveClaimInput.value = claim;
+        liveClaimResult.style.display = "block";
+        liveClaimResult.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px; color:#555;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <span>Auditing claim against live multi-source SATYA feeds with Gemini engine...</span>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(FACT_CHECK_API, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ claim })
+            });
+
+            if (response.status === 429) {
+                liveClaimResult.innerHTML = `
+                    <div style="color:#e53935; font-weight:600;">
+                        SATYA AI is receiving too many requests. Please try again shortly.
+                    </div>
+                `;
+                return;
+            }
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const result = await response.json();
+            const status = result.verificationStatus || "SUPPORTED";
+            const explanation = result.explanation || "Verification analysis completed.";
+            const sources = Array.isArray(result.verifiedSources) ? result.verifiedSources : [];
+
+            let statusColor = "#1b5e20";
+            if (status === "CONFLICTING") statusColor = "#b71c1c";
+            else if (status === "SUPPORTED") statusColor = "#0d47a1";
+            else if (status === "UNVERIFIED" || status === "INSUFFICIENT_EVIDENCE") statusColor = "#616161";
+
+            liveClaimResult.innerHTML = `
+                <div style="border-left: 4px solid ${statusColor}; padding-left: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px;">
+                        <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: ${statusColor}; background: rgba(0,0,0,0.05); padding: 4px 10px; border-radius: 12px;">
+                            ${escapeHtml(status)}
+                        </span>
+                        <span style="font-size: 11px; color: #777;">Confidence: ${escapeHtml(result.confidence || 'MEDIUM')}</span>
+                    </div>
+                    <h4 style="font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px;">Claim: "${escapeHtml(claim)}"</h4>
+                    <p style="font-size: 13px; color: #333; line-height: 1.5; margin-bottom: 8px;">${escapeHtml(explanation)}</p>
+                    ${sources.length > 0 ? `
+                        <div style="font-size: 11.5px; color: #666;">
+                            <strong>Cross-Referenced Outlets:</strong> ${sources.map(s => `<span style="display:inline-block; margin-left:4px; padding:2px 8px; background:rgba(0,0,0,0.06); border-radius:10px; font-weight:600;">${escapeHtml(s)}</span>`).join(' ')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } catch (err) {
+            console.warn("[SATYA CLAIM CHECK WARN]:", err);
+            liveClaimResult.innerHTML = `
+                <p style="color:#666; font-size:13px;">Verification service temporarily unavailable. Please try again shortly.</p>
+            `;
+        }
+    }
+
+    verifyClaimBtn?.addEventListener("click", () => handleLiveClaimVerification());
+    liveClaimInput?.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") handleLiveClaimVerification();
+    });
+
+    // Initial Load
     loadNewsData();
 });

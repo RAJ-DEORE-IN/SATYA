@@ -1,0 +1,33 @@
+{
+  "$schema": "https://firebase.google.com/schemas/firestore-blueprint.json",
+  "entities": {
+    "users": {
+      "path": "users/{userId}",
+      "description": "User profile document storing basic account information",
+      "fields": {
+        "uid": { "type": "string", "description": "User unique identifier matching auth UID" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "email": { "type": "string", "description": "User email address" },
+        "photoURL": { "type": "string", "description": "User avatar photo URL" },
+        "createdAt": { "type": "string", "description": "Account registration timestamp ISO" },
+        "lastLoginAt": { "type": "string", "description": "Last sign-in timestamp ISO" }
+      }
+    },
+    "savedArticles": {
+      "path": "users/{userId}/savedArticles/{articleId}",
+      "description": "User's bookmarked news intelligence articles",
+      "fields": {
+        "articleId": { "type": "string", "description": "Stable unique ID for the news article" },
+        "title": { "type": "string", "description": "Headline of the article" },
+        "description": { "type": "string", "description": "Summary or snippet of the article" },
+        "image": { "type": "string", "description": "Cover image URL" },
+        "source": { "type": "string", "description": "Publisher / source outlet name" },
+        "sourceUrl": { "type": "string", "description": "Link to original article source" },
+        "category": { "type": "string", "description": "Topic category (e.g. TODAY, WORLD, BUSINESS)" },
+        "publishedAt": { "type": "string", "description": "Article publication timestamp ISO" },
+        "savedAt": { "type": "string", "description": "Timestamp when the user saved the article" },
+        "verifiedStatus": { "type": "string", "description": "Verification status (CONFIRMED, SUPPORTED, etc.)" }
+      }
+    }
+  }
+}

@@ -3,6 +3,6 @@ module.exports = {
     language: "en",
     country: "IN",
     feeds: [
-        { categoryHint: "FACT CHECK", url: "https://www.boomlive.in/rss/feed" }
+        { categoryHint: "FACT CHECK", url: "https://www.boomlive.in/fact-check/feed" }
     ]
 };

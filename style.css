@@ -1186,3 +1186,297 @@ body {
         display: none;
     }
 }
+
+/* -------------------------------------------------------------
+   SATYA BOOKMARK, AUTH & EVIDENCE STATUS ADDITIONS
+------------------------------------------------------------- */
+.hero-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.hero-bookmark-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.28);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    color: #ffffff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.hero-bookmark-btn:hover {
+    background: rgba(255, 255, 255, 0.45);
+    transform: translateY(-1px);
+}
+
+.hero-bookmark-btn.saved {
+    background: #e53935;
+    border-color: #e53935;
+    color: #fff;
+}
+
+.hero-bookmark-btn.saved svg {
+    fill: #ffffff;
+}
+
+/* Reusable Card Bookmark Button */
+.news-card {
+    position: relative;
+}
+
+.card-bookmark-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    color: #222;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 4;
+    transition: all 0.22s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.card-bookmark-btn:hover {
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+.card-bookmark-btn.saved {
+    background: #e53935;
+    border-color: #e53935;
+    color: #fff;
+}
+
+.card-bookmark-btn.saved svg {
+    fill: #ffffff;
+}
+
+/* Detail Modal Bookmark Action */
+.detail-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.modal-bookmark-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    font-size: 13px;
+    font-weight: 700;
+    color: #222;
+    cursor: pointer;
+    transition: all 0.22s ease;
+}
+
+.modal-bookmark-btn:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-1px);
+}
+
+.modal-bookmark-btn.saved {
+    background: #e53935;
+    color: #fff;
+    border-color: #e53935;
+}
+
+.modal-bookmark-btn.saved svg {
+    fill: #ffffff;
+}
+
+/* User Account Dropdown */
+.user-dropdown {
+    position: fixed;
+    top: 75px;
+    right: max(3.5%, calc((100vw - 1360px) / 2));
+    width: 290px;
+    z-index: 2000;
+    padding: 18px;
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.user-dropdown.show {
+    display: flex;
+    animation: fadeInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.user-dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.dropdown-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    flex-shrink: 0;
+}
+
+.dropdown-user-info h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111;
+}
+
+.dropdown-user-info p {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+    word-break: break-all;
+}
+
+.dropdown-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dropdown-btn {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.dropdown-btn.primary {
+    background: #1c1c1e;
+    color: #fff;
+}
+
+.dropdown-btn.primary:hover {
+    background: #333;
+}
+
+.dropdown-btn.secondary {
+    background: rgba(0, 0, 0, 0.06);
+    color: #222;
+}
+
+.dropdown-btn.secondary:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Authentication Modal */
+.auth-modal-card {
+    text-align: center;
+    max-width: 440px;
+    padding: 38px 28px;
+}
+
+.auth-logo {
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    color: #111;
+}
+
+.auth-logo span {
+    color: #e53935;
+}
+
+.auth-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #666;
+    margin-top: 2px;
+}
+
+.auth-header p {
+    font-size: 13px;
+    color: #555;
+    margin-top: 14px;
+    line-height: 1.5;
+}
+
+.google-signin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 13px 20px;
+    margin-top: 24px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 24px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #222;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    transition: all 0.25s ease;
+}
+
+.google-signin-btn:hover {
+    background: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.auth-status-msg {
+    margin-top: 14px;
+    font-size: 12px;
+    color: #e53935;
+    min-height: 18px;
+}
+
+.auth-footer p {
+    font-size: 11px;
+    color: #777;
+    margin-top: 18px;
+}
+
+/* Defensible Evidence Status Colors */
+.truth-score.status-confirmed { color: #1b5e20; }
+.truth-score.status-supported { color: #0d47a1; }
+.truth-score.status-conflicting { color: #b71c1c; }
+.truth-score.status-unverified { color: #424242; }
+.truth-score.status-insufficient { color: #616161; }
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.spin-icon {
+    animation: spin 1s linear infinite;
+}

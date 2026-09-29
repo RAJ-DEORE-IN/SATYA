@@ -132,7 +132,11 @@ async function fetchLiveNews() {
     if (rawArticles.length === 0) {
         console.log("[SATYA SYSTEM] Dynamic Fallback: Pulling live public feeds...");
         const apiArticles = await fetchOpenPublicNews();
-        return deduplicateAndGroup(apiArticles);
+        if (apiArticles && apiArticles.length > 0) {
+            return deduplicateAndGroup(apiArticles);
+        }
+        const fallback = require('../data/newsData');
+        return deduplicateAndGroup(fallback.stories || []);
     }
 
     return deduplicateAndGroup(rawArticles);

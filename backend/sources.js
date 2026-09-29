@@ -28,8 +28,8 @@ const newsSources = [
         language: "en",
         country: "IN",
         feeds: [
-            { categoryHint: "WORLD", url: "http://feeds.bbci.co.uk/news/world/asia/india/rss.xml" },
-            { categoryHint: "WORLD", url: "http://feeds.bbci.co.uk/news/world/rss.xml" }
+            { categoryHint: "WORLD", url: "https://feeds.bbci.co.uk/news/world/asia/india/rss.xml" },
+            { categoryHint: "WORLD", url: "https://feeds.bbci.co.uk/news/world/rss.xml" }
         ]
     },
     {
@@ -42,12 +42,14 @@ const newsSources = [
         ]
     },
     {
-        name: "Indian Express",
+        name: "Hindustan Times",
         language: "en",
         country: "IN",
         feeds: [
-            { categoryHint: "INDIA", url: "https://indianexpress.com/section/india/feed/" },
-            { categoryHint: "WORLD", url: "https://indianexpress.com/section/world/feed/" }
+            { categoryHint: "INDIA", url: "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml" },
+            { categoryHint: "WORLD", url: "https://www.hindustantimes.com/feeds/rss/world-news/rssfeed.xml" },
+            { categoryHint: "BUSINESS", url: "https://www.hindustantimes.com/feeds/rss/business/rssfeed.xml" },
+            { categoryHint: "SPORTS", url: "https://www.hindustantimes.com/feeds/rss/sports/rssfeed.xml" }
         ]
     },
     {
@@ -64,15 +66,31 @@ const newsSources = [
         language: "en",
         country: "IN",
         feeds: [
-            { categoryHint: "FACT CHECK", url: "https://www.boomlive.in/feeder/default.rss" }
+            { categoryHint: "FACT CHECK", url: "https://www.boomlive.in/fact-check/feed" }
         ]
     },
     {
-        name: "Aaj Tak (Hindi)",
+        name: "Factly Fact Check",
+        language: "en",
+        country: "IN",
+        feeds: [
+            { categoryHint: "FACT CHECK", url: "https://factly.in/feed/" }
+        ]
+    },
+    {
+        name: "NDTV Khabar (Hindi)",
         language: "hi",
         country: "IN",
         feeds: [
-            { categoryHint: "INDIA", url: "https://www.aajtak.in/rss/detailnews.xml" }
+            { categoryHint: "INDIA", url: "https://feeds.feedburner.com/ndtvkhabar-latest" }
+        ]
+    },
+    {
+        name: "BBC News (Hindi)",
+        language: "hi",
+        country: "IN",
+        feeds: [
+            { categoryHint: "INDIA", url: "https://feeds.bbci.co.uk/hindi/rss.xml" }
         ]
     }
 ];
