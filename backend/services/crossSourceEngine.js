@@ -1,56 +1,58 @@
 // backend/services/crossSourceEngine.js
+const { analyzeArticleEvidence, buildCoverageComparison } = require('./evidenceEngine');
 
 function evaluateEventEvidence(groupedArticle) {
-    const sources = (groupedArticle.relatedSources || []).map(s => s.source);
-    const uniqueSources = [...new Set(sources)];
-    const sourceCount = uniqueSources.length;
-
-    let agreementScore = 50;
-    let conflictScore = 0;
-    let confidence = "LOW";
-    let verificationStatus = "UNVERIFIED";
-
-    if (sourceCount >= 3) {
-        agreementScore = 90;
-        confidence = "HIGH";
-        verificationStatus = "CONFIRMED";
-    } else if (sourceCount === 2) {
-        agreementScore = 75;
-        confidence = "MEDIUM";
-        verificationStatus = "SUPPORTED";
-    } else {
-        agreementScore = 50;
-        confidence = "LOW";
-        verificationStatus = "UNVERIFIED";
+    const analysis = analyzeArticleEvidence(groupedArticle);
+    if (!analysis) {
+        return {
+            eventId: groupedArticle?.id || "unknown",
+            title: groupedArticle?.title || "",
+            sources: [groupedArticle?.source || "SATYA"],
+            sourceCount: 1,
+            agreementScore: 50,
+            conflictScore: 0,
+            verificationStatus: "UNVERIFIED",
+            confidence: "LOW",
+            publishedAt: groupedArticle?.publishedAt || new Date().toISOString()
+        };
     }
 
-    // Detect conflicting claims (e.g. key figures disagreeing across headlines)
-    const titleTokens = groupedArticle.relatedSources.map(s => s.title.toLowerCase());
-    const hasDiscrepancy = titleTokens.some(t => t.includes('denies') || t.includes('refutes') || t.includes('claims otherwise'));
-    
-    if (hasDiscrepancy) {
-        conflictScore = 65;
-        verificationStatus = "CONFLICTING";
-    }
+    const agreementScore = analysis.evidenceStatus === "CONFIRMED" ? 92 
+        : analysis.evidenceStatus === "SUPPORTED" ? 75 
+        : analysis.evidenceStatus === "CONFLICTING" ? 40 : 50;
+
+    const conflictScore = analysis.hasConflict ? 70 : 0;
 
     return {
-        eventId: groupedArticle.id,
-        title: groupedArticle.title,
-        sources: uniqueSources,
-        sourceCount,
+        eventId: analysis.articleId,
+        title: analysis.title,
+        sources: analysis.independentSources,
+        sourceCount: analysis.sourcesCount,
         agreementScore,
         conflictScore,
-        verificationStatus,
-        confidence,
-        publishedAt: groupedArticle.publishedAt
+        verificationStatus: analysis.evidenceStatus,
+        statusLabel: analysis.statusLabel,
+        confidence: analysis.confidence,
+        summary: analysis.statusSummary,
+        isSyndicatedOnly: analysis.isSyndicatedOnly,
+        syndicatedWire: analysis.syndicatedWire,
+        primaryEvidenceType: analysis.primaryEvidenceType,
+        whatWeKnow: analysis.whatWeKnow,
+        whatWeDontKnow: analysis.whatWeDontKnow,
+        whatIsDisputed: analysis.whatIsDisputed,
+        whatWouldChangeThis: analysis.whatWouldChangeThis,
+        timeline: analysis.timeline,
+        whatChanged: analysis.whatChanged,
+        publishedAt: analysis.publishedAt
     };
 }
 
 function analyzeDatasetEvidence(groupedArticles) {
-    return groupedArticles.map(article => evaluateEventEvidence(article));
+    return (groupedArticles || []).map(article => evaluateEventEvidence(article));
 }
 
 module.exports = {
     evaluateEventEvidence,
-    analyzeDatasetEvidence
+    analyzeDatasetEvidence,
+    buildCoverageComparison
 };

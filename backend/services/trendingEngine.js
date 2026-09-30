@@ -1,41 +1,66 @@
+// backend/services/trendingEngine.js
 const { socialTrends } = require('../sources');
+const { analyzeArticleEvidence } = require('./evidenceEngine');
 
-async function calculateTrends(groupedArticles) {
+async function calculateTrends(groupedArticles = []) {
     const scoredTrends = [];
 
-    // Analyze news articles coverage velocity & source count
+    // 1. Analyze news articles into Event-Based Clusters
     for (const group of groupedArticles) {
-        const sourceCount = (group.relatedSources || []).length;
-        const pubDate = new Date(group.publishedAt).getTime();
-        const hoursAgo = Math.max(1, (Date.now() - pubDate) / (1000 * 60 * 60));
+        const related = Array.isArray(group.relatedSources) ? group.relatedSources : [];
+        const sourceCount = Math.max(1, related.length);
+        const uniqueSources = [...new Set(related.map(r => r.source || r))];
+        const pubDate = new Date(group.publishedAt || Date.now()).getTime();
+        const hoursAgo = Math.max(0.5, (Date.now() - pubDate) / (1000 * 60 * 60));
         
+        // Recency + velocity scoring
         const recencyScore = Math.max(10, Math.round(100 / hoursAgo));
-        const trendScore = Math.min(100, (sourceCount * 25) + recencyScore);
+        const trendScore = Math.min(100, (uniqueSources.length * 20) + recencyScore);
 
-        if (trendScore >= 35) {
+        const evidence = analyzeArticleEvidence(group);
+
+        if (trendScore >= 25 || uniqueSources.length >= 2) {
             scoredTrends.push({
+                id: group.id || `trend-${scoredTrends.length}`,
+                eventId: group.id,
+                title: group.title,
                 topic: group.title,
+                category: group.category || "GENERAL",
+                image: group.image,
                 trendScore,
-                velocity: hoursAgo < 4 ? "HIGH" : "MODERATE",
-                sourceCount,
-                socialSignal: "NEWS_VERIFIED",
-                recencyScore,
-                reason: `Reported by ${sourceCount} independent news outlet(s) in the last ${Math.round(hoursAgo)} hours.`
+                velocity: hoursAgo < 3 ? "VERY HIGH" : hoursAgo < 8 ? "HIGH" : "STEADY",
+                sourceCount: uniqueSources.length,
+                sources: uniqueSources,
+                lastUpdated: group.publishedAt || new Date().toISOString(),
+                verificationStatus: evidence ? evidence.evidenceStatus : (group.verifiedStatus || "SUPPORTED"),
+                statusLabel: evidence ? evidence.statusLabel : "REPORTED",
+                summary: group.description || "Multi-source coverage active.",
+                majorDevelopments: evidence?.timeline?.slice(0, 3)?.map(t => `${t.source}: ${t.label}`) || [],
+                reason: `${uniqueSources.length} independent outlet(s) reported in the last ${Math.round(hoursAgo)}h.`
             });
         }
     }
 
-    // Include legal social signals as trend metadata
+    // 2. Include legal social signals as trend metadata
     try {
         const rawSocial = await socialTrends.fetchTrends();
         rawSocial.forEach(st => {
             scoredTrends.push({
+                id: `social-${st.topic.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`,
+                eventId: null,
+                title: st.topic,
                 topic: st.topic,
+                category: "TRENDING",
+                image: null,
                 trendScore: st.trendScore,
                 velocity: "HIGH",
                 sourceCount: 1,
-                socialSignal: st.platform,
-                recencyScore: 80,
+                sources: [st.platform],
+                lastUpdated: new Date().toISOString(),
+                verificationStatus: "UNVERIFIED",
+                statusLabel: "SOCIAL SIGNAL",
+                summary: `High public interest trending on ${st.platform}`,
+                majorDevelopments: [`Signal registered from public discussions (${st.engagement})`],
                 reason: `Public signal trend on ${st.platform} (${st.engagement})`
             });
         });

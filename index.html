@@ -12,44 +12,64 @@
 <body>
 
     <!-- Background Liquid Blurs -->
-    <div class="background-blur blur-one"></div>
-    <div class="background-blur blur-two"></div>
-    <div class="background-blur blur-three"></div>
+    <div class="background-blur blur-one" aria-hidden="true"></div>
+    <div class="background-blur blur-two" aria-hidden="true"></div>
+    <div class="background-blur blur-three" aria-hidden="true"></div>
 
     <!-- TOP HEADER -->
     <header class="top-header">
         <div class="header-left">
-            <div class="live">
-                <span></span> Live
+            <div class="live" title="Live stream sync active">
+                <span class="pulse-dot"></span> Live
             </div>
             <div class="date" id="live-date">
                 Loading live time...
             </div>
         </div>
 
-        <div class="logo-area">
-            <h1 id="brand-logo" style="cursor: pointer;">SATYA<span>.</span></h1>
-            <p>News with truth.</p>
+        <div class="logo-area" id="brand-logo-area" role="banner">
+            <h1 id="brand-logo" style="cursor: pointer;" title="SATYA — Return to Home">SATYA<span>.</span></h1>
+            <p>News + Evidence + Verification + Context</p>
         </div>
 
         <div class="header-right">
-            <button class="round-button" id="search-btn" aria-label="Search">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <button class="round-button" id="compare-quick-btn" aria-label="Compare Coverage" title="Compare Coverage Across Sources">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
             </button>
-            <button class="round-button" id="notif-btn" aria-label="Notifications" style="position: relative;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <button class="round-button" id="search-btn" aria-label="Search" title="Search News, Claims & Sources">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </button>
+            <button class="round-button" id="notif-btn" aria-label="Notifications" title="Live Notifications" style="position: relative;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
                 <span class="notif-badge" id="notif-badge"></span>
             </button>
-            <div class="profile" id="user-profile-btn" style="cursor: pointer;" title="SATYA Account" tabindex="0">
-                <img id="user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="Profile">
+            <div class="profile" id="user-profile-btn" style="cursor: pointer;" title="SATYA Account" tabindex="0" role="button" aria-haspopup="true">
+                <img id="user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="User Profile Avatar" referrerpolicy="no-referrer">
             </div>
         </div>
     </header>
 
-    <!-- USER ACCOUNT DROPDOWN / PROFILE POPUP -->
-    <div class="user-dropdown liquid-glass-panel" id="user-dropdown">
+    <!-- QUICK TOPIC STRIP -->
+    <nav class="sub-nav-strip" aria-label="Topic Navigation">
+        <div class="sub-nav-track">
+            <button class="strip-item active" data-tab="home">Home</button>
+            <button class="strip-item" data-tab="today">Today's Briefing</button>
+            <button class="strip-item" data-tab="newsplus">Event Clusters</button>
+            <button class="strip-item highlight" data-tab="evidence">Evidence Workspace</button>
+            <button class="strip-item" data-tab="factcheck">Fact Check</button>
+            <button class="strip-item" data-tab="rumor">Rumor Firewall</button>
+            <button class="strip-item" data-tab="corrections">Corrections Ledger</button>
+            <button class="strip-item" data-tab="business">Business</button>
+            <button class="strip-item" data-tab="sports">Sports</button>
+            <button class="strip-item" data-tab="world">World</button>
+            <button class="strip-item" data-tab="saved">Saved Stories</button>
+        </div>
+    </nav>
+
+    <!-- USER ACCOUNT DROPDOWN -->
+    <div class="user-dropdown liquid-glass-panel" id="user-dropdown" role="menu">
         <div class="user-dropdown-header">
-            <img id="dropdown-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="User" class="dropdown-avatar">
+            <img id="dropdown-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="User Avatar" class="dropdown-avatar" referrerpolicy="no-referrer">
             <div class="dropdown-user-info">
                 <h4 id="dropdown-user-name">Guest Reader</h4>
                 <p id="dropdown-user-email">Sign in with Google to sync saved articles</p>
@@ -65,13 +85,13 @@
     </div>
 
     <!-- AUTHENTICATION MODAL -->
-    <div class="modal-overlay" id="auth-modal">
+    <div class="modal-overlay" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
         <div class="modal-card liquid-glass-panel auth-modal-card">
-            <button class="close-modal-btn" id="close-auth">&times;</button>
+            <button class="close-modal-btn" id="close-auth" aria-label="Close Authentication Modal">&times;</button>
             <div class="auth-header">
                 <div class="auth-logo">SATYA<span>.</span></div>
-                <h3>News with truth.</h3>
-                <p id="auth-modal-subtitle">Sign in with Google to save articles, sync your verified reading list across devices, and access personalized news intelligence.</p>
+                <h3 id="auth-modal-title">News with truth.</h3>
+                <p id="auth-modal-subtitle">Sign in with Google to save articles, sync your verified briefing across devices, and ask SATYA AI personalized questions about your reading list.</p>
             </div>
             <div class="auth-body">
                 <button id="google-signin-btn" class="google-signin-btn">
@@ -83,7 +103,7 @@
                     </svg>
                     <span>Continue with Google</span>
                 </button>
-                <div id="auth-status-msg" class="auth-status-msg"></div>
+                <div id="auth-status-msg" class="auth-status-msg" role="status"></div>
             </div>
             <div class="auth-footer">
                 <p>Your reading history and saved bookmarks are encrypted and private to your account.</p>
@@ -91,40 +111,46 @@
         </div>
     </div>
 
-    <!-- WORKING REALTIME NOTIFICATION DROPDOWN POPUP -->
-    <div class="notif-dropdown liquid-glass-panel" id="notif-dropdown">
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notif-dropdown liquid-glass-panel" id="notif-dropdown" role="region" aria-label="Notifications Panel">
         <div class="notif-header">
-            <h4>Notifications</h4>
+            <h4>Live News & Evidence Updates</h4>
             <span class="mark-read" id="clear-notifs">Clear all</span>
         </div>
         <div class="notif-list" id="notif-list">
-            <!-- Dynamic Notifications will render here -->
+            <!-- Dynamic notifications injected via JS -->
         </div>
     </div>
 
     <!-- SEARCH OVERLAY MODAL -->
-    <div class="modal-overlay" id="search-modal">
-        <div class="modal-card liquid-glass-panel">
-            <button class="close-modal-btn" id="close-search">&times;</button>
+    <div class="modal-overlay" id="search-modal" role="dialog" aria-modal="true" aria-label="Search news and evidence">
+        <div class="modal-card liquid-glass-panel search-modal-card">
+            <button class="close-modal-btn" id="close-search" aria-label="Close Search">&times;</button>
             <div class="search-box-wrap">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input type="text" id="search-input" placeholder="Search news topics, headlines, or facts..." autofocus>
+                <input type="text" id="search-input" placeholder="Search news topics, claims, or verified facts..." autofocus>
+            </div>
+            <div class="search-filter-pills" id="search-filter-pills">
+                <button class="search-filter-pill active" data-filter="all">All Results</button>
+                <button class="search-filter-pill" data-filter="news">Live Stories</button>
+                <button class="search-filter-pill" data-filter="evidence">Confirmed Evidence</button>
+                <button class="search-filter-pill" data-filter="saved">Saved Stories</button>
             </div>
             <div class="search-results-area" id="search-results">
-                <p class="search-hint">Type a query above to filter stories across SATYA indexes.</p>
+                <p class="search-hint">Type a query above to filter stories and evidence across SATYA indexes.</p>
             </div>
         </div>
     </div>
 
-    <!-- REDESIGNED LIQUID GLASS AI MODAL INTERFACE -->
-    <div class="modal-overlay" id="ai-modal">
+    <!-- SATYA AI INTELLIGENCE MODAL -->
+    <div class="modal-overlay" id="ai-modal" role="dialog" aria-modal="true" aria-label="SATYA News Intelligence Assistant">
         <div class="modal-card liquid-glass-panel ai-modal-card">
             <div class="ai-modal-header">
                 <div class="ai-title">
                     <div class="ai-glow-icon inline-icon">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#aiGradient2)" stroke-width="2.5">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#aiGradientHeader)" stroke-width="2.5">
                             <defs>
-                                <linearGradient id="aiGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <linearGradient id="aiGradientHeader" x1="0%" y1="0%" x2="100%" y2="100%">
                                     <stop offset="0%" stop-color="#ffffff" />
                                     <stop offset="100%" stop-color="#e53935" />
                                 </linearGradient>
@@ -132,18 +158,31 @@
                             <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 3Z"/>
                         </svg>
                     </div>
-                    <h3>SATYA Siri-Control Intelligence</h3>
+                    <div>
+                        <h3>SATYA News Intelligence</h3>
+                        <div class="ai-active-context" id="ai-active-context">Active Context: Live Headlines</div>
+                    </div>
                 </div>
-                <button class="close-modal-btn" id="close-ai">&times;</button>
+                <button class="close-modal-btn" id="close-ai" aria-label="Close Assistant">&times;</button>
             </div>
+
+            <!-- Quick Suggestion Chips -->
+            <div class="ai-suggestion-chips" id="ai-suggestion-chips">
+                <button class="ai-chip" data-prompt="IT ki jo latest news chal rahi hai vo batao">IT ki latest news</button>
+                <button class="ai-chip" data-prompt="Latest AI news kya chal rahi hai?">Latest AI news</button>
+                <button class="ai-chip" data-prompt="Is story mein actual proof kya hai?">Check current proof</button>
+                <button class="ai-chip" data-prompt="Mere saved stories dikhao">Show saved stories</button>
+                <button class="ai-chip" data-prompt="Sports section kholo">Open Sports</button>
+            </div>
+
             <div class="ai-chat-body" id="ai-chat-body">
                 <div class="ai-msg bot">
-                    <p>Namaste! I am SATYA System Intelligence. I can control your dashboard like Siri, verify multi-source API feeds, and fact-check stories live.</p>
+                    <p>Namaste! I am SATYA News Intelligence. I analyze live feeds across Indian and global news organizations, compare evidence across sources, fact-check claims, and control your dashboard.</p>
                 </div>
             </div>
             <div class="ai-chat-input-row">
-                <input type="text" id="ai-input" placeholder="Say e.g. 'Show sports news' or 'Fact check this news'...">
-                <button id="ai-send-btn" class="redesigned-send-btn">
+                <input type="text" id="ai-input" placeholder="Ask e.g. 'IT news batao', 'Fact check this story', 'Sports kholo'...">
+                <button id="ai-send-btn" class="redesigned-send-btn" aria-label="Send message">
                     <span>Send</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </button>
@@ -151,10 +190,20 @@
         </div>
     </div>
 
-    <!-- GENERAL DETAIL / TIMELINE / EXPANDED MODAL -->
-    <div class="modal-overlay" id="detail-modal">
+    <!-- CROSS-SOURCE COVERAGE COMPARISON MODAL -->
+    <div class="modal-overlay" id="compare-modal" role="dialog" aria-modal="true" aria-label="Compare News Coverage">
+        <div class="modal-card liquid-glass-panel compare-modal-card">
+            <button class="close-modal-btn" id="close-compare" aria-label="Close Comparison">&times;</button>
+            <div id="compare-modal-body">
+                <!-- Injected via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- GENERAL DETAIL / TIMELINE / EVIDENCE MODAL -->
+    <div class="modal-overlay" id="detail-modal" role="dialog" aria-modal="true" aria-label="Article Details and Evidence">
         <div class="modal-card liquid-glass-panel detail-modal-card">
-            <button class="close-modal-btn" id="close-detail">&times;</button>
+            <button class="close-modal-btn" id="close-detail" aria-label="Close Details">&times;</button>
             <div id="detail-modal-body">
                 <!-- Content injected via JavaScript -->
             </div>
@@ -162,20 +211,23 @@
     </div>
 
     <!-- MAIN CONTENT CONTAINER -->
-    <main class="main-container">
+    <main class="main-container" id="main-content">
 
         <!-- 1. HOME VIEW -->
-        <div id="home-view" class="tab-view active-view">
+        <div id="home-view" class="tab-view active-view" role="tabpanel">
             <!-- HERO SECTION -->
             <section class="hero-section">
 
                 <!-- MAIN STORY CARD -->
-                <article class="main-story liquid-slide" id="hero-article-card">
-                    <img id="hero-img" src="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1400&q=85" alt="ISRO launch">
+                <article class="main-story liquid-slide" id="hero-article-card" tabindex="0">
+                    <img id="hero-img" src="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1400&q=85" alt="Top Story Headline Cover" referrerpolicy="no-referrer">
                     
                     <div class="story-overlay">
                         <div class="hero-top-row">
-                            <div class="story-tag liquid-pill-tag" id="hero-tag">TOP STORY</div>
+                            <div class="story-tag-group">
+                                <span class="story-tag liquid-pill-tag" id="hero-tag">TOP STORY</span>
+                                <span class="hero-evidence-badge" id="hero-evidence-badge">MULTI-SOURCE CONFIRMED</span>
+                            </div>
                             <button class="hero-bookmark-btn" id="hero-bookmark-btn" aria-label="Save story" title="Save story">
                                 <svg class="bookmark-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                                     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
@@ -185,20 +237,26 @@
                         </div>
 
                         <div class="story-details">
-                            <div class="story-location" id="hero-location">Loading...</div>
+                            <div class="story-location" id="hero-location">Loading verified feed...</div>
                             <h2 id="hero-headline">Loading Top Stories...</h2>
                             <p id="hero-desc">Please wait while SATYA loads verified live news feeds.</p>
-                            <button class="read-button liquid-glass-btn" id="hero-read-btn">
-                                Read full story <span>→</span>
-                            </button>
+                            
+                            <div class="hero-actions-row">
+                                <button class="read-button liquid-glass-btn" id="hero-read-btn">
+                                    Inspect Evidence & Story <span>→</span>
+                                </button>
+                                <button class="compare-action-btn liquid-glass-btn" id="hero-compare-btn" title="Compare coverage with other sources">
+                                    Compare Sources
+                                </button>
+                            </div>
                             
                             <!-- Carousel Dots -->
-                            <div class="carousel-dots">
-                                <span class="dot active"></span>
-                                <span class="dot"></span>
-                                <span class="dot"></span>
-                                <span class="dot"></span>
-                                <span class="dot"></span>
+                            <div class="carousel-dots" role="tablist" aria-label="Carousel navigation">
+                                <span class="dot active" role="tab" aria-label="Story 1"></span>
+                                <span class="dot" role="tab" aria-label="Story 2"></span>
+                                <span class="dot" role="tab" aria-label="Story 3"></span>
+                                <span class="dot" role="tab" aria-label="Story 4"></span>
+                                <span class="dot" role="tab" aria-label="Story 5"></span>
                             </div>
                         </div>
                     </div>
@@ -207,20 +265,26 @@
                 <!-- RIGHT COLUMN SIDEBAR -->
                 <div class="side-column">
 
-                    <!-- TOP RIGHT SLIDE WITH AI TRUTH ANALYSIS OUTPUT -->
+                    <!-- TOP RIGHT SLIDE WITH EVIDENCE ANALYSIS OUTPUT -->
                     <section class="liquid-slide happening" id="happening-slide">
                         <div class="section-heading">
                             <h3 id="top-right-slide-title">What's happening</h3>
-                            <span class="view-all" id="view-timeline-btn">View timeline →</span>
+                            <span class="view-all" id="view-timeline-btn">Full timeline →</span>
                         </div>
 
-                        <!-- DYNAMIC AI TRUTH VERIFICATION BOX (TOP RIGHT AI OUTPUT) -->
+                        <!-- DYNAMIC EVIDENCE VERIFICATION BOX -->
                         <div class="ai-truth-box" id="ai-truth-box">
                             <div class="ai-truth-header">
-                                <span class="ai-badge-pill">AI VERIFIED FEED</span>
-                                <span class="truth-score" id="truth-score">100% TRUTH</span>
+                                <span class="ai-badge-pill" id="ai-status-pill">EVIDENCE STATUS</span>
+                                <span class="truth-score status-confirmed" id="truth-score">MULTI-SOURCE CONFIRMED</span>
                             </div>
-                            <p class="ai-analysis-line" id="ai-truth-output">Initializing SATYA Live Truth verification engine...</p>
+                            <p class="ai-analysis-line" id="ai-truth-output">Initializing SATYA Live Evidence verification engine...</p>
+                        </div>
+
+                        <!-- WHAT WE KNOW / DON'T KNOW QUICK BOX -->
+                        <div class="knowledge-glance-box" id="knowledge-glance-box">
+                            <div class="glance-label">WHAT WE KNOW</div>
+                            <div class="glance-item" id="glance-know-text">Cross-referencing verified feeds...</div>
                         </div>
 
                         <div class="timeline" id="happening-timeline">
@@ -232,46 +296,22 @@
                         </div>
                     </section>
 
-                    <!-- TRENDING NOW -->
+                    <!-- TRENDING EVENT CLUSTERS -->
                     <section class="liquid-slide trending">
                         <div class="section-heading">
-                            <h3>Trending now</h3>
-                            <span class="view-all" id="view-trending-all">View all →</span>
+                            <h3>Trending Events</h3>
+                            <span class="view-all" id="view-trending-all">View all events →</span>
                         </div>
 
-                        <div class="trend-item" data-index="0">
-                            <span class="trend-number">01</span>
-                            <img src="https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=300&q=80" alt="Rainfall">
-                            <div>
-                                <h4>Loading trending news...</h4>
-                                <p>--</p>
-                            </div>
-                        </div>
-
-                        <div class="trend-item" data-index="1">
-                            <span class="trend-number">02</span>
-                            <img src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=300&q=80" alt="Stock Markets">
-                            <div>
-                                <h4>Loading trending news...</h4>
-                                <p>--</p>
-                            </div>
-                        </div>
-
-                        <div class="trend-item" data-index="2">
-                            <span class="trend-number">03</span>
-                            <img src="https://images.unsplash.com/photo-1589994965851-a8f479c573a9?auto=format&fit=crop&w=300&q=80" alt="Investigation">
-                            <div>
-                                <h4>Loading trending news...</h4>
-                                <p>--</p>
-                            </div>
-                        </div>
-
-                        <div class="trend-item" data-index="3">
-                            <span class="trend-number">04</span>
-                            <img src="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=300&q=80" alt="Sports">
-                            <div>
-                                <h4>Loading trending news...</h4>
-                                <p>--</p>
+                        <div class="trending-events-list" id="trending-events-list">
+                            <!-- Dynamic Event items render here -->
+                            <div class="trend-item" data-index="0">
+                                <span class="trend-number">01</span>
+                                <img src="https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=300&q=80" alt="News event" referrerpolicy="no-referrer">
+                                <div>
+                                    <h4>Loading trending news...</h4>
+                                    <p>--</p>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -283,118 +323,176 @@
             <!-- LATEST NEWS GRID -->
             <section class="latest-section">
                 <div class="section-heading">
-                    <h2>Latest news</h2>
-                    <span class="view-all" id="view-latest-all">View all →</span>
+                    <h2>Latest Verified News</h2>
+                    <span class="view-all" id="view-latest-all">View today's briefing →</span>
                 </div>
 
-                <div class="news-grid">
-                    <article class="news-card liquid-slide" data-index="0">
-                        <img src="https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=600&q=80" alt="News">
-                        <div class="news-content">
-                            <span class="category">POLITICS</span>
-                            <h3>Loading latest news...</h3>
-                            <p>Just now</p>
-                        </div>
-                    </article>
-
-                    <article class="news-card liquid-slide" data-index="1">
-                        <img src="https://images.unsplash.com/photo-1559526324-593bc073d938?auto=format&fit=crop&w=600&q=80" alt="News">
-                        <div class="news-content">
-                            <span class="category">BUSINESS</span>
-                            <h3>Loading latest news...</h3>
-                            <p>Just now</p>
-                        </div>
-                    </article>
-
-                    <article class="news-card liquid-slide" data-index="2">
-                        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80" alt="News">
-                        <div class="news-content">
-                            <span class="category">TECHNOLOGY</span>
-                            <h3>Loading latest news...</h3>
-                            <p>Just now</p>
-                        </div>
-                    </article>
-
-                    <article class="news-card liquid-slide" data-index="3">
-                        <img src="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=600&q=80" alt="News">
-                        <div class="news-content">
-                            <span class="category">SPORTS</span>
-                            <h3>Loading latest news...</h3>
-                            <p>Just now</p>
-                        </div>
-                    </article>
+                <div class="news-grid" id="latest-news-grid">
+                    <!-- Dynamic latest articles rendered here -->
                 </div>
             </section>
         </div>
 
         <!-- 2. TODAY VIEW -->
-        <div id="today-view" class="tab-view" style="display: none;">
+        <div id="today-view" class="tab-view" style="display: none;" role="tabpanel">
             <section class="liquid-slide happening category-page-header">
                 <h2>Today's Briefing</h2>
-                <p>Key updates and verified timelines for today.</p>
+                <p>What actually matters today: verified timelines, key developments, and core facts across India & the World.</p>
+                
+                <div class="briefing-filter-row" id="today-filter-row">
+                    <button class="briefing-filter-pill active" data-category="ALL">All Briefings</button>
+                    <button class="briefing-filter-pill" data-category="INDIA">National</button>
+                    <button class="briefing-filter-pill" data-category="BUSINESS">Economy</button>
+                    <button class="briefing-filter-pill" data-category="TECHNOLOGY">Tech & AI</button>
+                    <button class="briefing-filter-pill" data-category="WORLD">World</button>
+                    <button class="briefing-filter-pill" data-category="SPORTS">Sports</button>
+                </div>
             </section>
             <div class="news-grid category-grid" id="today-news-grid"></div>
         </div>
 
-        <!-- 3. NEWS+ VIEW -->
-        <div id="newsplus-view" class="tab-view" style="display: none;">
+        <!-- 3. NEWS+ (EVENT CLUSTERS) VIEW -->
+        <div id="newsplus-view" class="tab-view" style="display: none;" role="tabpanel">
             <section class="liquid-slide happening category-page-header">
-                <h2>News+ Deep Dives</h2>
-                <p>In-depth analysis and long-form investigative reports.</p>
+                <h2>Event Clusters & Deep Dives</h2>
+                <p>Instead of repetitive wire stories, SATYA groups coverage by event — showing independent outlets, timelines, and developing changes.</p>
             </section>
-            <div class="news-grid category-grid" id="newsplus-news-grid"></div>
+            <div class="event-clusters-container" id="event-clusters-container">
+                <!-- Clustered event cards rendered here -->
+            </div>
         </div>
 
-        <!-- 4. WORLD VIEW -->
-        <div id="world-view" class="tab-view" style="display: none;">
+        <!-- 4. EVIDENCE WORKSPACE VIEW (NEW SIGNATURE SATYA DESTINATION) -->
+        <div id="evidence-view" class="tab-view" style="display: none;" role="tabpanel">
             <section class="liquid-slide happening category-page-header">
-                <h2>World News</h2>
-                <p>Verified updates from around the globe.</p>
+                <h2>SATYA Evidence Workspace</h2>
+                <p>An investigation workbench to examine evidence strength, source lineage, official documents, and uncertainties for any news topic.</p>
+                
+                <div class="evidence-search-bar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="evidence-search-input" placeholder="Search any story or claim to inspect its evidence chain...">
+                    <button id="evidence-search-btn" class="liquid-glass-btn">Inspect Evidence</button>
+                </div>
+            </section>
+
+            <div class="evidence-workspace-body" id="evidence-workspace-body">
+                <!-- Dynamic Evidence Explorer Canvas rendered here -->
+            </div>
+        </div>
+
+        <!-- 5. WORLD VIEW -->
+        <div id="world-view" class="tab-view" style="display: none;" role="tabpanel">
+            <section class="liquid-slide happening category-page-header">
+                <h2>World News Intelligence</h2>
+                <p>Global events, geopolitical developments, and foreign policy verified across international desks.</p>
             </section>
             <div class="news-grid category-grid" id="world-news-grid"></div>
         </div>
 
-        <!-- 5. BUSINESS VIEW -->
-        <div id="business-view" class="tab-view" style="display: none;">
+        <!-- 6. BUSINESS VIEW -->
+        <div id="business-view" class="tab-view" style="display: none;" role="tabpanel">
             <section class="liquid-slide happening category-page-header">
-                <h2>Business & Economy</h2>
-                <p>Markets, policy updates, and financial tracking.</p>
+                <h2>Business & Economy Tracker</h2>
+                <p>Markets, RBI & SEBI regulatory actions, corporate disclosures, and macroeconomic data.</p>
             </section>
             <div class="news-grid category-grid" id="business-news-grid"></div>
         </div>
 
-        <!-- 6. SPORTS VIEW -->
-        <div id="sports-view" class="tab-view" style="display: none;">
+        <!-- 7. SPORTS VIEW -->
+        <div id="sports-view" class="tab-view" style="display: none;" role="tabpanel">
             <section class="liquid-slide happening category-page-header">
-                <h2>Sports News</h2>
-                <p>Scores, standings, and tournament coverage.</p>
+                <h2>Sports Coverage</h2>
+                <p>Cricket tournaments, national athletics, squad announcements, and championship scores.</p>
             </section>
             <div class="news-grid category-grid" id="sports-news-grid"></div>
         </div>
 
-        <!-- 7. FACT CHECK VIEW -->
-        <div id="factcheck-view" class="tab-view" style="display: none;">
+        <!-- 8. FACT CHECK VIEW -->
+        <div id="factcheck-view" class="tab-view" style="display: none;" role="tabpanel">
             <section class="liquid-slide happening category-page-header">
                 <h2>SATYA Fact Check</h2>
-                <p>Independent claim verification and multi-source cross-referencing.</p>
+                <p>Rigorous claim verification grounded in multi-source feeds, official documents, and cross-source corroboration.</p>
             </section>
 
-            <div class="factcheck-input-card liquid-slide" style="margin-top: 18px; padding: 16px 20px; display: flex; gap: 12px; align-items: center; border-radius: 20px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                <input type="text" id="live-claim-input" placeholder="Type a claim or rumor to fact-check live against multi-source feeds..." style="flex:1; border:none; background:transparent; font-size:14px; outline:none; font-weight:500; color:#111;">
-                <button id="verify-claim-btn" class="liquid-glass-btn" style="padding: 9px 20px; border-radius: 20px; font-weight: 700; cursor: pointer; border: none; background: #e53935; color: #fff; font-size: 13px;">Verify Claim</button>
+            <div class="factcheck-input-card liquid-slide">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                <input type="text" id="live-claim-input" placeholder="Type a claim or rumor to fact-check live against multi-source feeds...">
+                <button id="verify-claim-btn" class="liquid-glass-btn verify-btn">Verify Claim</button>
             </div>
-            <div id="live-claim-result" class="liquid-slide" style="display: none; margin-top: 16px; padding: 20px 24px; border-radius: 20px;"></div>
+
+            <!-- Example Claims -->
+            <div class="example-claims-row">
+                <span class="example-label">Examples:</span>
+                <button class="example-claim-pill" data-claim="ISRO reusable launch vehicle orbital test flight">ISRO reusable launch test</button>
+                <button class="example-claim-pill" data-claim="Public transport completely shut down rumor">Transport shutdown rumor</button>
+                <button class="example-claim-pill" data-claim="Sensex and Nifty rally led by IT and banking">Markets IT & Banking rally</button>
+            </div>
+
+            <div id="live-claim-result" class="liquid-slide" style="display: none;"></div>
 
             <div class="news-grid category-grid" id="factcheck-news-grid"></div>
         </div>
 
-        <!-- 8. SAVED VIEW -->
-        <div id="saved-view" class="tab-view" style="display: none;">
+        <!-- 9. RUMOR FIREWALL VIEW -->
+        <div id="rumor-view" class="tab-view" style="display: none;" role="tabpanel">
             <section class="liquid-slide happening category-page-header">
-                <h2>Saved Stories</h2>
-                <p>Your bookmarked news articles will appear here.</p>
+                <h2>Rumor Firewall</h2>
+                <p>Paste a WhatsApp forward, social media caption, or unverified viral statement to evaluate current evidence.</p>
             </section>
+
+            <div class="rumor-input-box liquid-slide">
+                <textarea id="rumor-text-input" placeholder="Paste headline, WhatsApp forward, or social caption here to test against verified news archives..." rows="3"></textarea>
+                <div class="rumor-actions-bar">
+                    <span class="rumor-hint">Cross-references live multi-source feeds & official gazettes</span>
+                    <button id="rumor-analyze-btn" class="liquid-glass-btn verify-btn">Analyze Rumor</button>
+                </div>
+            </div>
+
+            <div id="rumor-analysis-result" class="liquid-slide" style="display: none;"></div>
+        </div>
+
+        <!-- 10. CORRECTIONS LEDGER VIEW -->
+        <div id="corrections-view" class="tab-view" style="display: none;" role="tabpanel">
+            <section class="liquid-slide happening category-page-header">
+                <h2>Transparent Corrections Ledger</h2>
+                <p>News reporting changes as new evidence arrives. SATYA transparently logs story corrections, clarifications, and official amendments.</p>
+            </section>
+
+            <div class="corrections-container" id="corrections-container">
+                <!-- Corrections list injected via JavaScript -->
+            </div>
+        </div>
+
+        <!-- 11. SAVED VIEW -->
+        <div id="saved-view" class="tab-view" style="display: none;" role="tabpanel">
+            <section class="liquid-slide happening category-page-header">
+                <h2>Saved Stories & Briefing</h2>
+                <p>Your personalized reading list, bookmarked evidence, and synchronized offline briefings.</p>
+                
+                <!-- Saved Controls: Search & Category Filter -->
+                <div class="saved-controls-row" id="saved-controls-row" style="display: none;">
+                    <div class="saved-search-wrap">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <input type="text" id="saved-search-input" placeholder="Search within your saved stories...">
+                    </div>
+                    <div class="saved-sort-wrap">
+                        <label for="saved-sort-select">Sort:</label>
+                        <select id="saved-sort-select">
+                            <option value="recent-saved">Recently Saved</option>
+                            <option value="recent-published">Recently Published</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="saved-stats-bar" id="saved-stats-bar" style="display: none;">
+                    <span id="saved-count-label">0 stories saved</span>
+                    <button class="ask-ai-saved-btn" id="ask-ai-saved-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 3Z"/></svg>
+                        <span>Ask SATYA AI about my saved stories</span>
+                    </button>
+                </div>
+            </section>
+
             <div class="news-grid category-grid" id="saved-news-grid">
                 <p class="empty-saved-msg">No bookmarked stories saved yet.</p>
             </div>
@@ -407,37 +505,38 @@
 
     </main>
 
-    <!-- REAL iOS LIQUID GLASS NAVIGATION BAR -->
-    <nav class="bottom-glass-nav" id="glassNav">
+    <!-- FLOATING LIQUID GLASS BOTTOM NAVIGATION BAR -->
+    <nav class="bottom-glass-nav" id="glassNav" role="navigation" aria-label="Main Navigation">
         <div class="nav-active-pill" id="activePill">
             <span class="active-dot"></span>
         </div>
 
-        <button class="nav-item active">
+        <button class="nav-item active" data-tab="home" aria-label="Home Tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
             <span>Home</span>
         </button>
 
-        <button class="nav-item">
+        <button class="nav-item" data-tab="today" aria-label="Today's Briefing Tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             <span>Today</span>
         </button>
 
-        <button class="nav-item">
+        <button class="nav-item" data-tab="newsplus" aria-label="Event Clusters Tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
             <span>News+</span>
         </button>
 
-        <button class="nav-item">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <span>World</span>
+        <button class="nav-item" data-tab="evidence" aria-label="Evidence Workspace Tab">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6z"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>Evidence</span>
         </button>
 
-        <button class="nav-item ai-button" id="ai-trigger-btn">
+        <!-- Center AI Trigger Button -->
+        <button class="nav-item ai-button" id="ai-trigger-btn" aria-label="Open SATYA Intelligence Assistant">
             <div class="ai-glow-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#aiGradient)" stroke-width="2.5">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#aiGradientNav)" stroke-width="2.5">
                     <defs>
-                        <linearGradient id="aiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <linearGradient id="aiGradientNav" x1="0%" y1="0%" x2="100%" y2="100%">
                             <stop offset="0%" stop-color="#ffffff" />
                             <stop offset="100%" stop-color="#e53935" />
                         </linearGradient>
@@ -447,22 +546,22 @@
             </div>
         </button>
 
-        <button class="nav-item">
+        <button class="nav-item" data-tab="business" aria-label="Business Tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
             <span>Business</span>
         </button>
 
-        <button class="nav-item">
+        <button class="nav-item" data-tab="sports" aria-label="Sports Tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
             <span>Sports</span>
         </button>
 
-        <button class="nav-item">
+        <button class="nav-item" data-tab="factcheck" aria-label="Fact Check Tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
             <span>Fact Check</span>
         </button>
 
-        <button class="nav-item">
+        <button class="nav-item" data-tab="saved" aria-label="Saved Stories Tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
             <span>Saved</span>
         </button>
