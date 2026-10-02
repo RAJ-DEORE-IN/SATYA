@@ -53,22 +53,34 @@ class SatyaAIEngine {
             'gemini-3.1-flash-lite',
             'gemini-flash-latest'
         ];
+        this.isApiKeyInvalid = false;
     }
 
     getAIClient() {
         const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey || apiKey === "yahan_apni_gemini_api_key_paste_kare" || apiKey.trim() === "") {
+        if (!apiKey || 
+            apiKey === "yahan_apni_gemini_api_key_paste_kare" || 
+            apiKey === "your_api_key_here" || 
+            apiKey.trim() === "" ||
+            this.isApiKeyInvalid) {
             return null;
         }
         try {
-            return new GoogleGenAI({ apiKey });
+            return new GoogleGenAI({ 
+                apiKey: apiKey.trim(),
+                httpOptions: {
+                    headers: {
+                        'User-Agent': 'aistudio-build'
+                    }
+                }
+            });
         } catch (err) {
-            console.warn("[SATYA AI] GoogleGenAI initialization error:", err.message);
             return null;
         }
     }
 
     async generateWithFallback(ai, params) {
+        if (!ai) throw new Error("AI_CLIENT_UNAVAILABLE");
         const candidateModels = [this.primaryModel, ...this.fallbackModels].filter((v, i, a) => a.indexOf(v) === i);
         let lastError = null;
 
@@ -81,9 +93,10 @@ class SatyaAIEngine {
                 return response;
             } catch (err) {
                 lastError = err;
-                console.warn(`[SATYA AI] Model ${model} request warning: ${err.message?.substring(0, 120)}`);
-                if (err.status === 401 || err.message?.includes('API key not valid')) {
-                    throw err;
+                const errMsg = err?.message || "";
+                if (err.status === 401 || (err.status === 400 && (errMsg.includes('API key not valid') || errMsg.includes('API_KEY_INVALID')))) {
+                    this.isApiKeyInvalid = true;
+                    throw new Error("AI_AUTH_UNAVAILABLE");
                 }
             }
         }
@@ -235,8 +248,8 @@ Respond with JSON only in this exact schema:
 }`;
 
                 const res = await this.generateWithFallback(ai, {
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    generationConfig: { responseMimeType: "application/json" }
+                    contents: prompt,
+                    config: { responseMimeType: "application/json" }
                 });
 
                 if (res.text) {
@@ -248,7 +261,7 @@ Respond with JSON only in this exact schema:
                     if (parsed.latestUpdate) latestUpdate = parsed.latestUpdate;
                 }
             } catch (err) {
-                console.warn("[STORY INTEL AI WARN]:", err.message);
+                // Graceful fallback to verified evidence rules
             }
         }
 
@@ -375,8 +388,8 @@ Return JSON with this schema:
 }`;
 
                 const res = await this.generateWithFallback(ai, {
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    generationConfig: { responseMimeType: "application/json" }
+                    contents: prompt,
+                    config: { responseMimeType: "application/json" }
                 });
 
                 if (res.text) {
@@ -388,7 +401,7 @@ Return JSON with this schema:
                     if (parsed.whatRemainsUncertain) whatRemainsUncertain = parsed.whatRemainsUncertain;
                 }
             } catch (err) {
-                console.warn("[COMPARE GEMINI WARN]:", err.message);
+                // Graceful fallback to deterministic cross-source synthesis
             }
         }
 
@@ -496,8 +509,8 @@ Return JSON in this schema:
 }`;
 
                 const res = await this.generateWithFallback(ai, {
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    generationConfig: { responseMimeType: "application/json" }
+                    contents: prompt,
+                    config: { responseMimeType: "application/json" }
                 });
 
                 if (res.text) {
@@ -509,7 +522,7 @@ Return JSON in this schema:
                     if (Array.isArray(parsed.conflictingClaims)) conflictingClaims = parsed.conflictingClaims;
                 }
             } catch (err) {
-                console.warn("[INVESTIGATE EVIDENCE AI WARN]:", err.message);
+                // Graceful fallback to deterministic evidence workspace calculation
             }
         }
 
@@ -1069,7 +1082,7 @@ Do NOT force SATYA news verification labels, evidence status, or news headers on
                     referencedArticles: []
                 };
             } catch (err) {
-                console.warn("[GENERAL AI ERROR]:", err.message);
+                // Graceful fallback handled below
             }
         }
 
@@ -1166,7 +1179,7 @@ Evaluate evidence strictly:
 Write a 2-sentence explanation of what is confirmed, what is uncertain, and cite the sources.`;
 
                 const res = await this.generateWithFallback(ai, {
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                    contents: prompt
                 });
 
                 return {
@@ -1180,7 +1193,7 @@ Write a 2-sentence explanation of what is confirmed, what is uncertain, and cite
                     whatWeDontKnow: evidence?.whatWeDontKnow || []
                 };
             } catch (err) {
-                console.warn("[FACT CHECK GENERATE WARN]:", err.message);
+                // Graceful fallback to verified news index below
             }
         }
 
