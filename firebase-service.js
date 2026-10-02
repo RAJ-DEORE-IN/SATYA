@@ -16,9 +16,9 @@ import {
     setDoc, 
     deleteDoc, 
     getDocs, 
+    getDocFromServer,
     collection, 
-    query, 
-    orderBy 
+    query 
 } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
 // Safe, production-ready Firebase configuration
@@ -31,6 +31,36 @@ export const firebaseConfig = {
     storageBucket: "gen-lang-client-0251055368.firebasestorage.app",
     messagingSenderId: "54742214433"
 };
+
+export const OperationType = {
+    CREATE: 'create',
+    UPDATE: 'update',
+    DELETE: 'delete',
+    LIST: 'list',
+    GET: 'get',
+    WRITE: 'write',
+};
+
+export function handleFirestoreError(error, operationType, path) {
+    const errInfo = {
+        error: error instanceof Error ? error.message : String(error),
+        authInfo: {
+            userId: auth?.currentUser?.uid || null,
+            email: auth?.currentUser?.email || null,
+            emailVerified: auth?.currentUser?.emailVerified || null,
+            isAnonymous: auth?.currentUser?.isAnonymous || null,
+            tenantId: auth?.currentUser?.tenantId || null,
+            providerInfo: auth?.currentUser?.providerData?.map(provider => ({
+                providerId: provider.providerId,
+                email: provider.email,
+            })) || []
+        },
+        operationType,
+        path
+    };
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+    throw new Error(JSON.stringify(errInfo));
+}
 
 let app = null;
 let auth = null;
@@ -46,6 +76,13 @@ try {
         : getFirestore(app);
     isInitialized = true;
     console.log("[SATYA FIREBASE] Initialized successfully with database:", firebaseConfig.firestoreDatabaseId);
+
+    // Test Firestore connection on boot
+    getDocFromServer(doc(db, 'test', 'connection')).catch((error) => {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+            console.error("Please check your Firebase configuration.");
+        }
+    });
 } catch (err) {
     console.warn("[SATYA FIREBASE] Initialization warning:", err.message);
 }
@@ -65,6 +102,7 @@ export async function signInWithGoogle() {
         const user = result.user;
         if (user && db) {
             // Upsert user profile document
+            const userPath = `users/${user.uid}`;
             try {
                 const userRef = doc(db, "users", user.uid);
                 await setDoc(userRef, {
@@ -89,7 +127,10 @@ export async function signInWithGoogle() {
             throw new Error("Sign-in popup was blocked by your browser. Please allow popups for this site.");
         }
         if (error.code === 'auth/unauthorized-domain') {
-            throw new Error("This domain is not yet authorized in Firebase Console -> Authentication -> Settings -> Authorized domains.");
+            const domainErr = new Error(`Firebase Auth: Domain "${window.location.hostname}" is not yet authorized in Firebase Console -> Authentication -> Settings -> Authorized domains.`);
+            domainErr.code = 'auth/unauthorized-domain';
+            domainErr.domain = window.location.hostname;
+            throw domainErr;
         }
         if (error.code === 'auth/network-request-failed') {
             throw new Error("Network connection failed. Please check your internet connection.");
@@ -136,6 +177,7 @@ export async function saveArticle(userId, article) {
         throw new Error("Invalid article data for saving.");
     }
 
+    const docPath = `users/${userId}/savedArticles/${String(article.id)}`;
     const articleRef = doc(db, "users", userId, "savedArticles", String(article.id));
     const payload = {
         articleId: String(article.id),
@@ -150,8 +192,12 @@ export async function saveArticle(userId, article) {
         verifiedStatus: article.verifiedStatus || "SUPPORTED"
     };
 
-    await setDoc(articleRef, payload);
-    return payload;
+    try {
+        await setDoc(articleRef, payload);
+        return payload;
+    } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, docPath);
+    }
 }
 
 /**
@@ -163,8 +209,13 @@ export async function removeArticle(userId, articleId) {
     }
     if (!articleId) return;
 
+    const docPath = `users/${userId}/savedArticles/${String(articleId)}`;
     const articleRef = doc(db, "users", userId, "savedArticles", String(articleId));
-    await deleteDoc(articleRef);
+    try {
+        await deleteDoc(articleRef);
+    } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, docPath);
+    }
 }
 
 /**
@@ -172,6 +223,7 @@ export async function removeArticle(userId, articleId) {
  */
 export async function getUserSavedArticles(userId) {
     if (!db || !userId) return [];
+    const colPath = `users/${userId}/savedArticles`;
     try {
         const colRef = collection(db, "users", userId, "savedArticles");
         const q = query(colRef);
@@ -183,6 +235,7 @@ export async function getUserSavedArticles(userId) {
         return articles.sort((a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0));
     } catch (err) {
         console.warn("[SATYA FIREBASE] Fetch saved articles warning:", err.message);
+        handleFirestoreError(err, OperationType.GET, colPath);
         return [];
     }
 }

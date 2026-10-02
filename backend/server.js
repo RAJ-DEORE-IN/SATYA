@@ -6,6 +6,7 @@ const { fetchLiveNews } = require('./services/newsCollector');
 const { calculateTrends } = require('./services/trendingEngine');
 const satyaAIEngine = require('./services/aiEngine');
 const { analyzeArticleEvidence, buildCoverageComparison } = require('./services/evidenceEngine');
+const { buildStructuredNotes, generatePdfBuffer, generateDocxCompatibleBuffer, generateMarkdownDocument } = require('./services/documentService');
 const initialNewsData = require('./data/newsData');
 
 const app = express();
@@ -220,25 +221,157 @@ app.get('/api/evidence/:id', (req, res) => {
     });
 });
 
-// 4. Side-by-Side Coverage Comparison Endpoint
-app.post('/api/compare', (req, res) => {
-    const { articleIds } = req.body || {};
-    let targetArticles = [];
+// 3.1 AI Story Intelligence (Top-Right Home Panel & Article Deep Dive)
+app.get('/api/story-intelligence/:id', async (req, res) => {
+    try {
+        const articleId = String(req.params.id);
+        let found = globalNewsCache.find(a => String(a.id) === articleId);
+        if (!found && globalNewsCache.length > 0) {
+            found = globalNewsCache[0];
+        }
 
-    if (Array.isArray(articleIds) && articleIds.length > 0) {
-        targetArticles = globalNewsCache.filter(a => articleIds.map(String).includes(String(a.id)));
+        if (!found) {
+            return res.status(404).json({
+                status: "error",
+                message: "Story not found in current news index."
+            });
+        }
+
+        const intelligence = await satyaAIEngine.getStoryIntelligence(found, globalNewsCache);
+        res.json({
+            status: "success",
+            data: intelligence
+        });
+    } catch (err) {
+        console.error("[STORY INTEL ROUTE ERROR]:", err.message);
+        res.status(500).json({
+            status: "error",
+            message: "Story intelligence service temporarily unavailable."
+        });
     }
+});
 
-    if (targetArticles.length === 0) {
-        // Fallback: take top 2 related articles from the first cluster
-        targetArticles = globalNewsCache.slice(0, 2);
+// 4. Dynamic Side-by-Side Coverage Comparison Endpoint
+app.post('/api/compare', async (req, res) => {
+    try {
+        const { articleId, articleIds, title } = req.body || {};
+        let targetArticle = null;
+
+        if (articleId) {
+            targetArticle = globalNewsCache.find(a => String(a.id) === String(articleId));
+        }
+
+        if (!targetArticle && title) {
+            targetArticle = globalNewsCache.find(a => a.title && a.title.toLowerCase().includes(title.toLowerCase().trim()));
+        }
+
+        if (!targetArticle && Array.isArray(articleIds) && articleIds.length > 0) {
+            targetArticle = globalNewsCache.find(a => String(a.id) === String(articleIds[0]));
+        }
+
+        if (!targetArticle) {
+            targetArticle = globalNewsCache[0];
+        }
+
+        if (!targetArticle) {
+            return res.status(404).json({
+                status: "error",
+                message: "No current stories available for comparison."
+            });
+        }
+
+        const comparison = await satyaAIEngine.compareCoverage(targetArticle, globalNewsCache);
+        res.json({
+            status: "success",
+            data: comparison
+        });
+    } catch (err) {
+        console.error("[COMPARE ROUTE ERROR]:", err.message);
+        res.status(500).json({
+            status: "error",
+            message: "Comparison service temporarily unavailable."
+        });
     }
+});
 
-    const comparison = buildCoverageComparison(targetArticles);
-    res.json({
-        status: "success",
-        data: comparison
-    });
+// 4.1 Evidence Workspace Investigation Endpoint
+app.post('/api/investigate-evidence', aiRateLimiter(30, 60 * 1000), async (req, res) => {
+    try {
+        const { query, articleId } = req.body || {};
+        let targetArticle = null;
+        if (articleId) {
+            targetArticle = globalNewsCache.find(a => String(a.id) === String(articleId));
+        }
+
+        const investigation = await satyaAIEngine.investigateEvidence(query, targetArticle, globalNewsCache);
+        res.json({
+            status: "success",
+            data: investigation
+        });
+    } catch (err) {
+        console.error("[INVESTIGATE EVIDENCE ROUTE ERROR]:", err.message);
+        res.status(500).json({
+            status: "error",
+            message: "Evidence investigation service temporarily unavailable."
+        });
+    }
+});
+
+// 4.2 Document & Notes Generation Endpoint (PDF, DOCX, TXT, Markdown)
+app.all('/api/generate-document', async (req, res) => {
+    try {
+        const articleId = req.query.articleId || req.body?.articleId;
+        const format = (req.query.format || req.body?.format || 'pdf').toLowerCase();
+
+        let targetArticle = null;
+        if (articleId) {
+            targetArticle = globalNewsCache.find(a => String(a.id) === String(articleId));
+        }
+        if (!targetArticle && globalNewsCache.length > 0) {
+            targetArticle = globalNewsCache[0];
+        }
+
+        if (!targetArticle) {
+            return res.status(404).send("Article not found for document generation.");
+        }
+
+        const evidence = analyzeArticleEvidence(targetArticle);
+        const notes = buildStructuredNotes(targetArticle, evidence);
+
+        const safeFilename = (targetArticle.title || "satya-intelligence-report")
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '-')
+            .replace(/-+/g, '-')
+            .substring(0, 36) || "satya-notes";
+
+        if (format === 'pdf') {
+            const pdfBuffer = await generatePdfBuffer(notes);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.pdf"`);
+            return res.send(pdfBuffer);
+        } else if (format === 'docx' || format === 'doc') {
+            const docxBuffer = generateDocxCompatibleBuffer(notes);
+            res.setHeader('Content-Type', 'application/msword');
+            res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.doc"`);
+            return res.send(docxBuffer);
+        } else if (format === 'markdown' || format === 'md') {
+            const md = generateMarkdownDocument(notes);
+            res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.md"`);
+            return res.send(md);
+        } else {
+            const txt = `${notes.title}\nSource: ${notes.source} | Status: ${notes.verifiedStatus}\nPublished: ${notes.publishedAt}\n\nSummary:\n${notes.summary}\n\nWhat We Know:\n${notes.whatWeKnow.join('\n')}\n\nWhat Is Unclear:\n${notes.whatWeDontKnow.join('\n')}\n\nTimeline:\n${notes.timeline.map(t => `${t.time}: ${t.label || t.headline}`).join('\n')}\n\nSources:\n${notes.sources.join(', ')}`;
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.txt"`);
+            return res.send(txt);
+        }
+    } catch (err) {
+        console.error("[DOCUMENT GENERATION ROUTE ERROR]:", err.message);
+        res.status(500).json({
+            status: "error",
+            message: "Failed to generate document: " + err.message
+        });
+    }
 });
 
 // 5. Rumor Firewall: Viral Claim Analysis

@@ -1,33 +1,45 @@
 {
-  "$schema": "https://firebase.google.com/schemas/firestore-blueprint.json",
   "entities": {
-    "users": {
-      "path": "users/{userId}",
-      "description": "User profile document storing basic account information",
-      "fields": {
-        "uid": { "type": "string", "description": "User unique identifier matching auth UID" },
-        "displayName": { "type": "string", "description": "User display name" },
+    "User": {
+      "title": "User",
+      "description": "User profile document",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user ID" },
+        "displayName": { "type": "string", "description": "Display name of the user" },
         "email": { "type": "string", "description": "User email address" },
-        "photoURL": { "type": "string", "description": "User avatar photo URL" },
-        "createdAt": { "type": "string", "description": "Account registration timestamp ISO" },
-        "lastLoginAt": { "type": "string", "description": "Last sign-in timestamp ISO" }
-      }
+        "photoURL": { "type": "string", "description": "User avatar URL" },
+        "lastLoginAt": { "type": "string", "description": "ISO timestamp of last login" }
+      },
+      "required": ["uid"]
     },
-    "savedArticles": {
-      "path": "users/{userId}/savedArticles/{articleId}",
-      "description": "User's bookmarked news intelligence articles",
-      "fields": {
-        "articleId": { "type": "string", "description": "Stable unique ID for the news article" },
-        "title": { "type": "string", "description": "Headline of the article" },
-        "description": { "type": "string", "description": "Summary or snippet of the article" },
+    "SavedArticle": {
+      "title": "SavedArticle",
+      "description": "Saved news story by user",
+      "type": "object",
+      "properties": {
+        "articleId": { "type": "string", "description": "Article ID" },
+        "title": { "type": "string", "description": "Article headline title" },
+        "description": { "type": "string", "description": "Summary or description of the article" },
         "image": { "type": "string", "description": "Cover image URL" },
-        "source": { "type": "string", "description": "Publisher / source outlet name" },
-        "sourceUrl": { "type": "string", "description": "Link to original article source" },
-        "category": { "type": "string", "description": "Topic category (e.g. TODAY, WORLD, BUSINESS)" },
-        "publishedAt": { "type": "string", "description": "Article publication timestamp ISO" },
-        "savedAt": { "type": "string", "description": "Timestamp when the user saved the article" },
-        "verifiedStatus": { "type": "string", "description": "Verification status (CONFIRMED, SUPPORTED, etc.)" }
-      }
+        "source": { "type": "string", "description": "News publication or source name" },
+        "sourceUrl": { "type": "string", "description": "Original source URL" },
+        "category": { "type": "string", "description": "News category" },
+        "publishedAt": { "type": "string", "description": "Publication timestamp" },
+        "savedAt": { "type": "string", "description": "Saved timestamp" },
+        "verifiedStatus": { "type": "string", "description": "Fact-check or verification status" }
+      },
+      "required": ["articleId", "title", "savedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile collection"
+    },
+    "/users/{userId}/savedArticles/{articleId}": {
+      "schema": "SavedArticle",
+      "description": "Articles saved by the user"
     }
   }
 }

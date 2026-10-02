@@ -49,20 +49,17 @@
         </div>
     </header>
 
-    <!-- QUICK TOPIC STRIP -->
-    <nav class="sub-nav-strip" aria-label="Topic Navigation">
+    <!-- QUICK INTELLIGENCE TOOL STRIP (INTELLIGENCE TOOLS ONLY) -->
+    <nav class="sub-nav-strip" aria-label="Intelligence Tools">
         <div class="sub-nav-track">
-            <button class="strip-item active" data-tab="home">Home</button>
-            <button class="strip-item" data-tab="today">Today's Briefing</button>
-            <button class="strip-item" data-tab="newsplus">Event Clusters</button>
-            <button class="strip-item highlight" data-tab="evidence">Evidence Workspace</button>
-            <button class="strip-item" data-tab="factcheck">Fact Check</button>
-            <button class="strip-item" data-tab="rumor">Rumor Firewall</button>
-            <button class="strip-item" data-tab="corrections">Corrections Ledger</button>
-            <button class="strip-item" data-tab="business">Business</button>
-            <button class="strip-item" data-tab="sports">Sports</button>
-            <button class="strip-item" data-tab="world">World</button>
-            <button class="strip-item" data-tab="saved">Saved Stories</button>
+            <button class="strip-item active" data-tab="home" title="Live Headlines">Home</button>
+            <button class="strip-item" data-tab="today" title="Today's Verified Briefing">Today's Briefing</button>
+            <button class="strip-item" data-tab="newsplus" title="Event Clusters & Deep Dives">Event Clusters</button>
+            <button class="strip-item highlight" data-tab="evidence" title="Investigate Claims & Story Proof">Evidence Workspace</button>
+            <button class="strip-item" id="strip-compare-btn" title="Compare Coverage on Current Story">Compare Coverage</button>
+            <button class="strip-item" data-tab="factcheck" title="Audit Claims Against Feeds">Fact Check</button>
+            <button class="strip-item" data-tab="rumor" title="Viral Rumor Analysis">Rumor Firewall</button>
+            <button class="strip-item" data-tab="corrections" title="Transparent News Corrections">Corrections Ledger</button>
         </div>
     </nav>
 
@@ -103,7 +100,18 @@
                     </svg>
                     <span>Continue with Google</span>
                 </button>
+                <button id="guest-signin-btn" class="guest-signin-btn" style="margin-top:10px; width:100%; padding:12px; border-radius:12px; border:1px solid rgba(0,0,0,0.12); background:rgba(0,0,0,0.03); color:#333; font-weight:600; font-size:13px; cursor:pointer;">
+                    Continue as Verified Reader (Guest Mode)
+                </button>
                 <div id="auth-status-msg" class="auth-status-msg" role="status"></div>
+                <div id="domain-whitelist-notice" class="domain-whitelist-notice" style="display:none; margin-top:14px; padding:12px; border-radius:12px; background:rgba(255,243,205,0.8); border:1px solid #ffeeba; font-size:11.5px; color:#856404; text-align:left;">
+                    <strong>Firebase Domain Setup Note:</strong><br>
+                    To enable Google OAuth for this preview origin, add this domain to <em>Firebase Console &rarr; Auth &rarr; Settings &rarr; Authorized domains</em>:
+                    <div style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+                        <code id="current-domain-code" style="background:rgba(0,0,0,0.06); padding:3px 6px; border-radius:4px; font-size:11px; flex:1; word-break:break-all;"></code>
+                        <button id="copy-domain-btn" style="padding:4px 8px; border-radius:6px; background:#856404; color:#fff; border:none; cursor:pointer; font-size:10px;">Copy</button>
+                    </div>
+                </div>
             </div>
             <div class="auth-footer">
                 <p>Your reading history and saved bookmarks are encrypted and private to your account.</p>
@@ -265,34 +273,93 @@
                 <!-- RIGHT COLUMN SIDEBAR -->
                 <div class="side-column">
 
-                    <!-- TOP RIGHT SLIDE WITH EVIDENCE ANALYSIS OUTPUT -->
-                    <section class="liquid-slide happening" id="happening-slide">
-                        <div class="section-heading">
-                            <h3 id="top-right-slide-title">What's happening</h3>
-                            <span class="view-all" id="view-timeline-btn">Full timeline →</span>
-                        </div>
-
-                        <!-- DYNAMIC EVIDENCE VERIFICATION BOX -->
-                        <div class="ai-truth-box" id="ai-truth-box">
-                            <div class="ai-truth-header">
-                                <span class="ai-badge-pill" id="ai-status-pill">EVIDENCE STATUS</span>
-                                <span class="truth-score status-confirmed" id="truth-score">MULTI-SOURCE CONFIRMED</span>
+                    <!-- TOP RIGHT: SATYA AI LIVE STORY INTELLIGENCE PANEL -->
+                    <section class="liquid-slide happening satya-ai-intel-panel" id="happening-slide">
+                        <div class="intel-ambient-glow" aria-hidden="true"></div>
+                        <div class="intel-panel-header">
+                            <div class="intel-badge-row">
+                                <span class="ai-live-pulse-dot"></span>
+                                <span class="intel-badge-title">SATYA AI INTELLIGENCE</span>
                             </div>
-                            <p class="ai-analysis-line" id="ai-truth-output">Initializing SATYA Live Evidence verification engine...</p>
+                            <span class="view-all" id="view-timeline-btn">Compare Sources &rarr;</span>
                         </div>
 
-                        <!-- WHAT WE KNOW / DON'T KNOW QUICK BOX -->
-                        <div class="knowledge-glance-box" id="knowledge-glance-box">
-                            <div class="glance-label">WHAT WE KNOW</div>
-                            <div class="glance-item" id="glance-know-text">Cross-referencing verified feeds...</div>
-                        </div>
+                        <!-- SCROLLABLE INTELLIGENCE BODY -->
+                        <div class="intel-scroll-body" id="intel-scroll-body">
+                            <!-- Story Headline Reference & Status -->
+                            <div class="intel-story-ref" id="intel-story-ref">
+                                <h4 id="intel-story-title">Analyzing active story...</h4>
+                                <div class="intel-status-pill-row">
+                                    <span class="truth-score status-confirmed" id="truth-score">MULTI-SOURCE CONFIRMED</span>
+                                    <span class="intel-outlets-count" id="intel-source-count">Loading sources...</span>
+                                </div>
+                            </div>
 
-                        <div class="timeline" id="happening-timeline">
-                            <!-- Dynamic Timeline Items render here -->
-                        </div>
+                            <!-- 1. WHAT HAPPENED -->
+                            <div class="intel-block">
+                                <div class="intel-block-label">
+                                    <span class="intel-dot red"></span>
+                                    WHAT HAPPENED
+                                </div>
+                                <p class="intel-block-text" id="intel-what-happened">Initializing live intelligence analysis...</p>
+                            </div>
 
-                        <div class="developing" id="happening-footer">
-                            Live timeline sync powered by SATYA Intelligence Engine.
+                            <!-- 2. WHY IT MATTERS -->
+                            <div class="intel-block">
+                                <div class="intel-block-label">
+                                    <span class="intel-dot purple"></span>
+                                    WHY IT MATTERS
+                                </div>
+                                <p class="intel-block-text" id="intel-why-it-matters">Evaluating strategic & public context...</p>
+                            </div>
+
+                            <!-- 3. WHAT WE KNOW -->
+                            <div class="intel-block">
+                                <div class="intel-block-label">
+                                    <span class="intel-dot green"></span>
+                                    WHAT WE KNOW (CONFIRMED)
+                                </div>
+                                <ul class="intel-list confirmed" id="intel-what-we-know">
+                                    <li>Cross-referencing verified primary documentation...</li>
+                                </ul>
+                            </div>
+
+                            <!-- 4. WHAT IS UNCLEAR -->
+                            <div class="intel-block">
+                                <div class="intel-block-label">
+                                    <span class="intel-dot amber"></span>
+                                    WHAT IS UNCLEAR / PENDING
+                                </div>
+                                <ul class="intel-list unclear" id="intel-what-is-unclear">
+                                    <li>Secondary ground confirmations developing...</li>
+                                </ul>
+                            </div>
+
+                            <!-- 5. LATEST UPDATE -->
+                            <div class="intel-block">
+                                <div class="intel-block-label">
+                                    <span class="intel-dot blue"></span>
+                                    LATEST UPDATE
+                                </div>
+                                <p class="intel-block-text highlight" id="intel-latest-update">Monitoring real-time developments...</p>
+                            </div>
+
+                            <!-- 6. REPORTING TIMELINE -->
+                            <div class="intel-block">
+                                <div class="intel-block-label">
+                                    <span class="intel-dot indigo"></span>
+                                    REPORTING TIMELINE
+                                </div>
+                                <div class="timeline" id="happening-timeline">
+                                    <!-- Dynamic Timeline Items render here -->
+                                </div>
+                            </div>
+
+                            <!-- 7. INDEPENDENT SOURCES STATUS -->
+                            <div class="intel-source-footer" id="intel-source-footer">
+                                <div style="font-size:11px; font-weight:700; color:#555; margin-bottom:4px;">INDEPENDENT REPORTING OUTLETS:</div>
+                                <div class="intel-sources-pills" id="intel-sources-pills" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+                            </div>
                         </div>
                     </section>
 
@@ -372,6 +439,14 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                     <input type="text" id="evidence-search-input" placeholder="Search any story or claim to inspect its evidence chain...">
                     <button id="evidence-search-btn" class="liquid-glass-btn">Inspect Evidence</button>
+                </div>
+
+                <div class="evidence-quick-pills" id="evidence-quick-pills" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <span style="font-size:11.5px; color:#555; font-weight:600;">Investigate:</span>
+                    <button class="evidence-sample-pill" data-query="ISRO reusable launch vehicle mission">ISRO launch test</button>
+                    <button class="evidence-sample-pill" data-query="Semiconductor manufacturing plant approvals India">Semiconductor approvals</button>
+                    <button class="evidence-sample-pill" data-query="RBI monetary policy interest rate updates">RBI interest rate</button>
+                    <button class="evidence-sample-pill" data-query="India economic growth rate fiscal projections">India GDP projections</button>
                 </div>
             </section>
 
@@ -556,9 +631,9 @@
             <span>Sports</span>
         </button>
 
-        <button class="nav-item" data-tab="factcheck" aria-label="Fact Check Tab">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-            <span>Fact Check</span>
+        <button class="nav-item" data-tab="world" aria-label="World Tab">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6z"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>World</span>
         </button>
 
         <button class="nav-item" data-tab="saved" aria-label="Saved Stories Tab">

@@ -38,7 +38,9 @@ document.addEventListener("DOMContentLoaded", () => {
         currentUser: null,
         savedFilterCategory: "ALL",
         savedSearchQuery: "",
-        savedSortMode: "recent-saved"
+        savedSortMode: "recent-saved",
+        recentArticlesViewed: [],
+        categoryVisitCounts: {}
     };
 
     const savedArticlesMap = new Map(); // articleId -> article record
@@ -397,13 +399,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80";
 
-    onAuthChange(async (user) => {
-        appState.currentUser = user;
+    function updateAuthUI(user) {
         if (user) {
-            console.log("[SATYA AUTH] Logged in as:", user.displayName || user.email);
             const photo = user.photoURL || DEFAULT_AVATAR;
-            const name = user.displayName || "SATYA Reader";
-            const email = user.email || "";
+            const name = user.displayName || (user.isGuest ? "Verified Reader (Guest)" : "SATYA Reader");
+            const email = user.email || (user.isGuest ? "Guest Session Active" : "");
 
             if (userAvatar) userAvatar.src = photo;
             if (dropdownAvatar) dropdownAvatar.src = photo;
@@ -413,10 +413,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 dropdownAuthBtn.innerHTML = `<span>Sign Out</span>`;
                 dropdownAuthBtn.className = "dropdown-btn secondary";
             }
-
-            await syncUserSavedArticles();
         } else {
-            console.log("[SATYA AUTH] Signed out / Guest session");
             if (userAvatar) userAvatar.src = DEFAULT_AVATAR;
             if (dropdownAvatar) dropdownAvatar.src = DEFAULT_AVATAR;
             if (dropdownUserName) dropdownUserName.textContent = "Guest Reader";
@@ -428,17 +425,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
                 dropdownAuthBtn.className = "dropdown-btn primary";
             }
+        }
+        updateAllBookmarkButtonStates();
+        if (appState.currentTab === "saved") {
+            renderSavedArticlesView();
+        }
+    }
 
+    onAuthChange(async (user) => {
+        if (user) {
+            console.log("[SATYA AUTH] Logged in as:", user.displayName || user.email);
+            appState.currentUser = user;
+            updateAuthUI(user);
+            await syncUserSavedArticles();
+        } else if (!appState.currentUser || !appState.currentUser.isGuest) {
+            console.log("[SATYA AUTH] Signed out / Guest session");
+            appState.currentUser = null;
             savedArticlesMap.clear();
-            updateAllBookmarkButtonStates();
-            if (appState.currentTab === "saved") {
-                renderSavedArticlesView();
-            }
+            updateAuthUI(null);
         }
     });
 
     async function syncUserSavedArticles() {
-        if (!appState.currentUser) return;
+        if (!appState.currentUser || appState.currentUser.isGuest) return;
         try {
             const articles = await getUserSavedArticles(appState.currentUser.uid);
             savedArticlesMap.clear();
@@ -466,8 +475,16 @@ document.addEventListener("DOMContentLoaded", () => {
         userDropdown?.classList.remove("show");
         if (appState.currentUser) {
             try {
-                await signOutUser();
-                showBannerMessage("Signed out of SATYA.");
+                if (appState.currentUser.isGuest) {
+                    appState.currentUser = null;
+                    localStorage.removeItem("satya_guest_user");
+                    savedArticlesMap.clear();
+                    updateAuthUI(null);
+                    showBannerMessage("Signed out of Guest session.");
+                } else {
+                    await signOutUser();
+                    showBannerMessage("Signed out of SATYA.");
+                }
             } catch (err) {
                 showBannerMessage("Sign out error: " + err.message, true);
             }
@@ -483,6 +500,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     googleSigninBtn?.addEventListener("click", async () => {
         if (authStatusMsg) authStatusMsg.textContent = "Connecting with Google...";
+        const domainNotice = document.getElementById("domain-whitelist-notice");
+        const domainCode = document.getElementById("current-domain-code");
+        if (domainNotice) domainNotice.style.display = "none";
+
         try {
             const user = await signInWithGoogle();
             if (user) {
@@ -491,15 +512,61 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (err) {
             console.error("[SATYA AUTH SIGNIN ERROR]:", err);
-            if (authStatusMsg) {
-                authStatusMsg.textContent = err.code === "auth/popup-closed-by-user"
-                    ? "Sign-in cancelled."
-                    : (err.message || "Failed to sign in. Please try again.");
+            if (err.code === "auth/unauthorized-domain") {
+                if (authStatusMsg) {
+                    authStatusMsg.textContent = "Domain authorization required in Firebase Console.";
+                }
+                if (domainNotice && domainCode) {
+                    domainCode.textContent = window.location.hostname;
+                    domainNotice.style.display = "block";
+                }
+            } else if (err.code === "auth/popup-closed-by-user") {
+                if (authStatusMsg) authStatusMsg.textContent = "Sign-in cancelled.";
+            } else {
+                if (authStatusMsg) authStatusMsg.textContent = err.message || "Failed to sign in.";
             }
         }
     });
 
+    document.getElementById("guest-signin-btn")?.addEventListener("click", () => {
+        const guestUser = {
+            uid: "guest-reader-" + Math.random().toString(36).substring(2, 9),
+            displayName: "Verified Reader (Guest)",
+            email: "reader@satya.local",
+            isGuest: true
+        };
+        appState.currentUser = guestUser;
+        localStorage.setItem("satya_guest_user", JSON.stringify(guestUser));
+        updateAuthUI(guestUser);
+        closeModal("auth-modal");
+        showBannerMessage("Signed in as Verified Reader (Guest Mode). Bookmarks & AI active.");
+    });
+
+    document.getElementById("copy-domain-btn")?.addEventListener("click", () => {
+        navigator.clipboard.writeText(window.location.hostname).then(() => {
+            const btn = document.getElementById("copy-domain-btn");
+            if (btn) btn.textContent = "Copied!";
+            setTimeout(() => { if (btn) btn.textContent = "Copy"; }, 2000);
+        });
+    });
+
     closeAuthBtn?.addEventListener("click", () => closeModal("auth-modal"));
+
+    // Check for saved guest session on boot
+    try {
+        const storedGuest = localStorage.getItem("satya_guest_user");
+        if (storedGuest) {
+            const parsedGuest = JSON.parse(storedGuest);
+            appState.currentUser = parsedGuest;
+            const storedBookmarks = localStorage.getItem("satya_guest_bookmarks");
+            if (storedBookmarks) {
+                const entries = JSON.parse(storedBookmarks);
+                savedArticlesMap.clear();
+                entries.forEach(([id, rec]) => savedArticlesMap.set(id, rec));
+            }
+            updateAuthUI(parsedGuest);
+        }
+    } catch (e) {}
 
     // -------------------------------------------------------------
     // BOOKMARK / SAVED ARTICLES SYSTEM
@@ -518,26 +585,49 @@ document.addEventListener("DOMContentLoaded", () => {
         const isSaved = savedArticlesMap.has(articleId);
 
         try {
-            if (isSaved) {
-                await removeArticle(appState.currentUser.uid, articleId);
-                savedArticlesMap.delete(articleId);
-                showBannerMessage("Story removed from your briefing.");
+            if (appState.currentUser.isGuest) {
+                if (isSaved) {
+                    savedArticlesMap.delete(articleId);
+                    showBannerMessage("Story removed from your briefing.");
+                } else {
+                    const savedRecord = {
+                        articleId,
+                        title: article.title || "Untitled",
+                        description: article.description || article.contentSnippet || "",
+                        image: article.image || FALLBACK_IMG,
+                        source: article.source || "SATYA",
+                        sourceUrl: article.sourceUrl || "",
+                        category: article.category || "GENERAL",
+                        publishedAt: article.publishedAt || new Date().toISOString(),
+                        savedAt: new Date().toISOString(),
+                        verifiedStatus: article.verifiedStatus || "SUPPORTED"
+                    };
+                    savedArticlesMap.set(articleId, savedRecord);
+                    showBannerMessage("Story saved to your private briefing.");
+                }
+                localStorage.setItem("satya_guest_bookmarks", JSON.stringify(Array.from(savedArticlesMap.entries())));
             } else {
-                const savedRecord = {
-                    articleId,
-                    title: article.title || "Untitled",
-                    description: article.description || article.contentSnippet || "",
-                    image: article.image || FALLBACK_IMG,
-                    source: article.source || "SATYA",
-                    sourceUrl: article.sourceUrl || "",
-                    category: article.category || "GENERAL",
-                    publishedAt: article.publishedAt || new Date().toISOString(),
-                    savedAt: new Date().toISOString(),
-                    verifiedStatus: article.verifiedStatus || "SUPPORTED"
-                };
-                await saveArticle(appState.currentUser.uid, savedRecord);
-                savedArticlesMap.set(articleId, savedRecord);
-                showBannerMessage("Story saved to your private briefing.");
+                if (isSaved) {
+                    await removeArticle(appState.currentUser.uid, articleId);
+                    savedArticlesMap.delete(articleId);
+                    showBannerMessage("Story removed from your briefing.");
+                } else {
+                    const savedRecord = {
+                        articleId,
+                        title: article.title || "Untitled",
+                        description: article.description || article.contentSnippet || "",
+                        image: article.image || FALLBACK_IMG,
+                        source: article.source || "SATYA",
+                        sourceUrl: article.sourceUrl || "",
+                        category: article.category || "GENERAL",
+                        publishedAt: article.publishedAt || new Date().toISOString(),
+                        savedAt: new Date().toISOString(),
+                        verifiedStatus: article.verifiedStatus || "SUPPORTED"
+                    };
+                    await saveArticle(appState.currentUser.uid, savedRecord);
+                    savedArticlesMap.set(articleId, savedRecord);
+                    showBannerMessage("Story saved to your private briefing.");
+                }
             }
 
             updateAllBookmarkButtonStates();
